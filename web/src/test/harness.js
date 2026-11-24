@@ -4,9 +4,9 @@ import { createApp, startHttpServer } from "../../../server/src/app.js";
 import { forgetWorkspace, workspaceId } from "../workspace.js";
 
 // Starts the lab and points the page's fetch at it. `overrides` maps a path (no query) to a function (init, url, pass) => Response, to force a 4xx or 5xx.
-export async function startLab({ overrides = {}, env = {} } = {}) {
+export async function startLab({ overrides = {}, env = {}, workspaces } = {}) {
   const logged = [];
-  const { server, url } = await startHttpServer({ port: 0, host: "127.0.0.1", app: createApp({ env: { WEB_DIST: "/nonexistent", ...env }, log: (l) => logged.push(l) }) });
+  const { server, url } = await startHttpServer({ port: 0, host: "127.0.0.1", app: createApp({ env: { WEB_DIST: "/nonexistent", ...env }, log: (l) => logged.push(l), ...(workspaces ? { workspaces } : {}) }) });
   const base = url.replace(/\/$/, "");
   const nativeFetch = globalThis.fetch;
   const calls = [];
@@ -20,7 +20,7 @@ export async function startLab({ overrides = {}, env = {} } = {}) {
   };
   forgetWorkspace();
   return {
-    base, calls, logged,
+    base, calls, logged, workspaces,
     ws: () => workspaceId(),
     // A request outside the page, in the page's own workspace.
     post: (path, payload) => nativeFetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json", origin: base, "x-workspace": workspaceId() }, body: JSON.stringify(payload) }).then((r) => r.json()),

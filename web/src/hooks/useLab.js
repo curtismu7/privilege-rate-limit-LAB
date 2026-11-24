@@ -7,7 +7,8 @@ const say = (r, what) => r.body?.message || `${what} failed (HTTP ${r.status})`;
  * The lab's one data hook: the info (source, realAvailable, the banner), the story for the picked vertical and the mode switch. `switchMode` is the rule 19
  * toggle: POST /api/mode with exactly { source }, then every piece of data is loaded again. `epoch` goes up on a switch or a Reset so a page can start over.
  */
-export default function useLab() {
+export default function useLab({ onRestart } = {}) {
+  const restartRef = useRef(onRestart); restartRef.current = onRestart; // called after a mode change that really happened, before the page restarts
   const [vertical, setVerticalState] = useState("finance");
   const [info, setInfo] = useState(null);
   const [story, setStory] = useState(null);
@@ -35,6 +36,7 @@ export default function useLab() {
     if (source === info?.source) return { ok: true, unchanged: true };
     const r = await setMode(source);
     if (!r.ok) { setModeError(r.body?.message || `The mode did not change (HTTP ${r.status})`); return { ok: false, message: r.body?.message }; }
+    restartRef.current?.();
     setModeError(null); setEpoch((n) => n + 1);
     await load(vertical);
     return { ok: true };

@@ -20,14 +20,19 @@ export function workspaceFrom(req) {
 }
 
 export function createWorkspaces({ max = 200 } = {}) {
-  const map = new Map(); // insertion order = oldest first
-  const get = (id) => {
-    let w = map.get(id);
-    if (!w) { w = { runs: createRunLog(), last: null, seq: 0 }; map.set(id, w); while (map.size > max) map.delete(map.keys().next().value); }
-    return w;
-  };
+  const map = new Map(); // insertion order = least recently used first
+  const touch = (id, w) => { map.delete(id); map.set(id, w); return w; };
   return {
-    get,
+    // For a request that WRITES state (a run): the workspace is created on first use and moved to the most-recently-used end.
+    get(id) {
+      let w = map.get(id);
+      if (!w) { w = { runs: createRunLog(), last: null, seq: 0 }; while (map.size >= max) map.delete(map.keys().next().value); }
+      return touch(id, w);
+    },
+    // For a read: the workspace if it exists (and now counts as used), else null. A read never creates state.
+    peek(id) { const w = map.get(id); return w ? touch(id, w) : null; },
+    // Whether the server still holds this workspace, without touching its place in the order.
+    has: (id) => map.has(id),
     reset(id) { const w = map.get(id); const n = w ? w.runs.count() : 0; map.delete(id); return n; },
     size: () => map.size,
   };

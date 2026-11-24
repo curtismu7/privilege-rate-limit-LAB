@@ -43,16 +43,21 @@ export function createApp({ env = process.env, runChecks = () => defaultChecks(e
     const id = workspaceFrom(req);
     if (id === null) return res.status(400).json({ error: 'bad_workspace', message: 'X-Workspace must be 1 to 40 lowercase letters, digits or hyphens and must not look like a credential' });
     req.workspace = id;
+    // The tab says it already used this id (X-Workspace-Used: 1, sent after its first run). If the server holds no state for it, the workspace was evicted or the
+    // server restarted: say so on every answer until the tab acknowledges it, so the page can tell the visitor instead of silently showing defaults.
+    req.workspaceForgotten = req.headers['x-workspace-used'] === '1' && !workspaces.has(id);
+    if (req.workspaceForgotten) res.set('X-Workspace-Fresh', '1');
     return next();
   });
-  const stateOf = (req) => workspaces.get(req.workspace);
+  const stateOf = (req) => workspaces.get(req.workspace); // creates: only for requests that write state
+  const peekOf = (req) => workspaces.peek(req.workspace);   // a read never creates state
 
   app.get('/api/info', (req, res) => {
     res.json({
       app: 'privilege-rate-limit-lab', version, tier: 'Demo',
       source: 'mock', mode: 'mock', realAvailable: false, realReason: NOT_REAL,
       banner: BANNER, openQuestion: OPEN_QUESTION, clientViewNote: CLIENT_VIEW_NOTE,
-      engines: ENGINE_NAMES, bounds: BOUNDS, scenarios: SCENARIOS.map((s) => s.id), runsSinceReset: stateOf(req).runs.count(), workspace: req.workspace,
+      engines: ENGINE_NAMES, bounds: BOUNDS, scenarios: SCENARIOS.map((s) => s.id), runsSinceReset: peekOf(req)?.runs.count() ?? 0, workspace: req.workspace, fresh: req.workspaceForgotten,
     });
   });
 
@@ -120,7 +125,7 @@ export function createApp({ env = process.env, runChecks = () => defaultChecks(e
   // What the latest run in this workspace left behind (rule 27): the panel's record, or null before any run.
   app.get('/api/observability', async (req, res, next) => {
     try {
-      const last = stateOf(req).last;
+      const last = peekOf(req)?.last ?? null;
       const record = last ? await buildRunRecord({ runId: last.runId, events: last.events }) : null;
       // A run can make no decision at all (an idle profile): that is not "nothing has run". A run with more decisions than the cap says how many were cut.
       res.set('Cache-Control', 'no-store').json({

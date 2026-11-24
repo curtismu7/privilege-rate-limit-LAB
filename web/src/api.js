@@ -1,4 +1,4 @@
-import { workspaceFetch } from "./workspace";
+import { clearWorkspaceUsed, markWorkspaceUsed, workspaceFetch } from "./workspace";
 
 // Every call returns { ok, status, body } and never throws: a refusal (400, 409) is data with a plain message, and a body that is not JSON (a proxy's
 // 502 page) becomes { error, message } so the page always has a sentence to show (rule 23).
@@ -20,7 +20,9 @@ export const getDiagram = (name, vertical) => call("GET", `/api/diagram?name=${e
 export const getObservability = () => call("GET", "/api/observability");
 // Rule 19: exactly { source }; a 409 (Real is not available) is data, shown as the server worded it.
 export const setMode = (source) => call("POST", "/api/mode", { source });
-export const postScenario = (id) => call("POST", `/api/scenario/${encodeURIComponent(id)}`, {});
+// A run is what creates state in the lab, so after one the tab can say "I already used this id" (see workspace.js).
+const ran = (r) => { if (r.ok) markWorkspaceUsed(); return r; };
+export const postScenario = (id) => call("POST", `/api/scenario/${encodeURIComponent(id)}`, {}).then(ran);
 // record: false is a look-aside run (the cluster compare): the server answers it but does not count it or keep it as the latest run.
-export const postRun = (engine, config, profile, { record = true } = {}) => call("POST", record ? "/api/run" : "/api/run?record=0", { engine, config, profile });
-export const postReset = () => call("POST", "/api/reset", {});
+export const postRun = (engine, config, profile, { record = true } = {}) => call("POST", record ? "/api/run" : "/api/run?record=0", { engine, config, profile }).then((r) => (record ? ran(r) : r));
+export const postReset = () => call("POST", "/api/reset", {}).then((r) => { clearWorkspaceUsed(); return r; }); // the server dropped this workspace on purpose

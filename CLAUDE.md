@@ -14,6 +14,7 @@ Demo-tier standalone lab. Steps 1 (engines, API) and 2 (web UI, presenter mode, 
 - No AI attribution in commits or files. Never push, never create a repo from here; the GitHub account is `curtismu7`.
 
 ## Recorded decisions
+- `web/src/app.css` is tokens only (no colour literals, no dark-mode media queries, breakpoints 600 and 900) EXCEPT the chart block's `--series-*` custom properties: the dataviz palette has its own validated light and dark steps, defined under the shared stylesheet's two dark selectors. The file header says so.
 - The host-scan test (`server/test/repo.test.js`) exempts exactly one non-reserved host: `github.com/curtismu7/privilege-rate-limit-LAB` (this lab's own public repo: the Help link, the content pack's source URL, the shelf entry). The Learning Hub's validator requires a real URI for a source, so `.invalid` would not pass it. Any other host in shipped text still fails. Vendored shared files and the CI workflow are exempt because they are pinned or not shipped text.
 
 ## Never-repeat lessons
@@ -27,3 +28,10 @@ Demo-tier standalone lab. Steps 1 (engines, API) and 2 (web UI, presenter mode, 
 - Shortcut keys ignore Ctrl, Cmd and Alt, key repeats and focus in a field, select, button, link or editable text; Escape always leaves presenter mode.
 - Static scans skip `.github/` and the shared attribution script (they name the very strings they search for).
 - Before claiming a port, check running containers and compose files (`docker ps`; the `ap-*` labs use 7839 to 7843), not only the registry.
+- A box or button wrapper only handles keys when `e.target === e.currentTarget` (else a button inside an expanded box is toggled and prevented by the wrapper); a test presses Enter on a button inside a box.
+- A `customer.config` brand override must reach every brand-bearing string: build them all from the one brand (`cast.js`), and test with another brand in every vertical that no other company name is left.
+- A brand of only control or bidi characters is empty once cleaned: check non-empty after sanitising, keep the default.
+- Parallel calls refused for the same workspace id must mint one new id (renew only if the id is still the one the failed call sent).
+- A read never creates workspace state; the least recently USED workspace is evicted; a tab that says it already ran something (`X-Workspace-Used`) under an id the server no longer holds is told (`X-Workspace-Fresh`, `info.fresh`) and the page shows a banner.
+- The mode-switch clears the scenario hash only after the switch succeeded, before the page restarts (`useLab({ onRestart })`); nav links keep their default (Back, Cmd and middle click work).
+- A failed run clears the earlier result from the screen and presses no scenario button.

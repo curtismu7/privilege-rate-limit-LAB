@@ -18,7 +18,6 @@ export default function RateLimitsPage({ lab }) {
   const [current, setCurrent] = useState(null); // { scenario, result, requests, traces }
   const [busy, setBusy] = useState(false);
   const [runError, setRunError] = useState(null);
-  const [pickedId, setPickedId] = useState(null);
   const seq = useRef(0);
   const runNo = useRef(0); // one number per run on screen: a panel is keyed by it, so no panel keeps state (a cluster compare) from the run before
 
@@ -26,21 +25,22 @@ export default function RateLimitsPage({ lab }) {
 
   const pick = useCallback(async (sc) => {
     const mine = ++seq.current; // a late answer for a scenario the visitor has left is dropped
-    setBusy(true); setRunError(null); setPickedId(sc.id);
+    setBusy(true); setRunError(null);
     const r = await postScenario(sc.id);
     if (mine !== seq.current) return;
     setBusy(false);
-    if (!r.ok) { setRunError({ code: r.body?.error, message: r.body?.message || `HTTP ${r.status}` }); return; }
+    // A failed run leaves no result of an earlier run beside its error, and no scenario button pressed.
+    if (!r.ok) { setCurrent(null); setRunError({ code: r.body?.error, message: r.body?.message || `HTTP ${r.status}` }); return; }
     setCurrent({ n: (runNo.current += 1), scenario: sc, result: r.body, requests: sc.runs, traces: r.body.traces });
   }, []);
 
   const custom = useCallback(async (req) => {
     const mine = ++seq.current;
-    setBusy(true); setRunError(null); setPickedId(null);
+    setBusy(true); setRunError(null);
     const r = await postRun(req.engine, req.config, req.profile);
     if (mine !== seq.current) return;
     setBusy(false);
-    if (!r.ok) { setRunError({ code: r.body?.error, message: r.body?.message || `HTTP ${r.status}` }); return; }
+    if (!r.ok) { setCurrent(null); setRunError({ code: r.body?.error, message: r.body?.message || `HTTP ${r.status}` }); return; }
     const { traces, ...run } = r.body;
     setCurrent({ n: (runNo.current += 1), scenario: null, result: { runs: { run } }, requests: { run: req }, traces: { run: traces } });
   }, []);
@@ -77,7 +77,7 @@ export default function RateLimitsPage({ lab }) {
         {list && (
           <div className="card-grid card-grid--scen" role="group" aria-label="Scenarios">
             {list.map((sc, i) => (
-              <button key={sc.id} type="button" className="card card--pick" aria-pressed={pickedId === sc.id} disabled={busy} onClick={() => pick(sc)} data-testid={`scenario-${sc.id}`}>
+              <button key={sc.id} type="button" className="card card--pick" aria-pressed={current?.scenario?.id === sc.id} disabled={busy} onClick={() => pick(sc)} data-testid={`scenario-${sc.id}`}>
                 <span className="kicker">Scenario {i + 1}</span>
                 <span className="card__title">{visible(sc.title)}</span>
               </button>

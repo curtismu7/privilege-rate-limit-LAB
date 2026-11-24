@@ -38,6 +38,12 @@ test('CI runs the build, the tests, the UI-standard check, the doctor on PORT=78
   for (const job of ['build:', 'test:', 'doctor:', 'forbidden-strings:', 'gitleaks:']) assert.ok(ci.includes(`\n  ${job}`), job);
 });
 
+test('the forbidden-strings job is skipped for a fork\'s pull request (it has no secret and would fail on an empty list instead of scanning)', () => {
+  const ci = read('.github/workflows/ci.yml');
+  const job = ci.slice(ci.indexOf('\n  forbidden-strings:'), ci.indexOf('\n  gitleaks:'));
+  assert.match(job, /\n    if: github\.event\.pull_request\.head\.repo\.fork != true\n/);
+});
+
 test('rule 13: the page keeps the workspace rule in step with the server (a table of ids)', async () => {
   const src = read('web/src/workspace.js');
   const parts = /CREDENTIAL_PARTS = new Set\(\[([^\]]*)\]\)/.exec(src)[1].match(/"([a-z]+)"/g).map((s) => s.replaceAll('"', ''));

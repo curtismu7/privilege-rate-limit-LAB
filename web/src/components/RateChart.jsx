@@ -100,7 +100,7 @@ export default function RateChart({ run, title, yMaxRequests, yMaxLevel, testId 
         {legend.map(([k, label]) => <li key={k}><span className={`chart__swatch chart__swatch--${k}`} aria-hidden="true" />{label}</li>)}
       </ul>
       <div className="chart__plot">
-        <svg width={width} height={height} role="img" aria-label={`${title || "Run"}: requests per ${secs(g.tickMs)} tick${H2 ? " and tokens or in-flight calls" : ""} over ${secs(g.tEnd)} of lab time. ${run.totals.allowed} allowed, ${run.totals.refused} refused.`}>
+        <svg width={width} height={height} role="group" aria-label={`${title || "Run"}: requests per ${secs(g.tickMs)} tick${H2 ? " and tokens or in-flight calls" : ""} over ${secs(g.tEnd)} of lab time. ${run.totals.allowed} allowed, ${run.totals.refused} refused.`}>
           {ticksOf(g.reqMax).map((v) => (
             <g key={`a${v}`}><line className="chart__grid" x1={PAD.l} x2={PAD.l + g.w} y1={y1(v)} y2={y1(v)} /><text className="chart__axis" x={PAD.l - 6} y={y1(v)} dy="0.32em" textAnchor="end">{fmt(v)}</text></g>
           ))}

@@ -1,5 +1,7 @@
 /* App layout only (chart colours are series tokens, defined once below for light and dark). Colours, fonts, controls and the dark theme come from styles/standalone-ui.css (loaded first). Tokens only here:
-   no colour literals, no dark-mode media queries, breakpoints 600px and 900px only. */
+   no colour literals, no dark-mode media queries and breakpoints 600px and 900px only, EXCEPT the one chart block at the end: its --series-* custom properties are the
+   dataviz palette (blue, orange, aqua, green; validated against the surface in both themes) with their own light and dark steps, so that block defines them under the
+   same two dark selectors the shared stylesheet uses. Nothing else in this file names a colour, and every rule reads the tokens. */
 .app { padding: 0 0 32px; }
 html { font-size: var(--fs, 16px); }
 .shell-bar { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin: 0 -16px; padding: 10px 20px;

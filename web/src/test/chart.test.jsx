@@ -23,6 +23,15 @@ describe("RateChart (the live chart of series[])", () => {
     expect(legend).not.toHaveTextContent("Error"); // no errors in this run, so no error entry
   });
 
+  it("the readout is inside a group, not an image: an svg role=img would make its focusable child presentational", () => {
+    render(<RateChart run={bucket()} title="Refilling bucket" />);
+    const svg = screen.getByTestId("chart").querySelector("svg");
+    expect(svg.getAttribute("role")).toBe("group");
+    expect(svg.getAttribute("aria-label")).toMatch(/10 allowed, 5 refused/);
+    expect(svg.contains(screen.getByTestId("chart-hit"))).toBe(true);
+    expect(screen.getByTestId("chart-hit").getAttribute("tabindex")).toBe("0");
+  });
+
   it("a stacked column's segments never overlap: refused sits above allowed with a gap", () => {
     render(<RateChart run={bucket()} />);
     const a = screen.getByTestId("chart").querySelector(".chart__bar--allowed");

@@ -33,15 +33,33 @@ export function workspaceId({ renew = false } = {}) {
   return memo;
 }
 
+// The id this tab has already RUN something under. It is sent as X-Workspace-Used so the server can tell "a new tab" from "a tab whose workspace I no longer
+// hold" (evicted, or the server restarted): only the second is told X-Workspace-Fresh, and the page then says so instead of silently showing defaults.
+let usedId = null;
+export const markWorkspaceUsed = () => { usedId = workspaceId(); };
+export const clearWorkspaceUsed = () => { usedId = null; };
+let onForgotten = null;
+export function onWorkspaceForgotten(fn) { onForgotten = fn; return () => { if (onForgotten === fn) onForgotten = null; }; }
+
 // One call to the lab. If the server refuses the id (400 bad_workspace: an id saved by an older page, or edited by hand), the page makes a new id and asks
-// once more: the refusal happens before anything runs, so asking again is safe. Never a loop: a second refusal is returned as it is.
+// once more: the refusal happens before anything runs, so asking again is safe. Never a loop: a second refusal is returned as it is. Parallel calls that are
+// refused for the same id mint ONE new id between them: a call renews only if the id is still the one it sent.
 export async function workspaceFetch(url, opts = {}) {
-  const send = () => fetch(url, { ...opts, headers: { "content-type": "application/json", ...(opts.headers || {}), "x-workspace": workspaceId() } });
-  const r = await send();
-  if (r.status !== 400) return r;
+  const send = () => {
+    const id = workspaceId();
+    return fetch(url, { ...opts, headers: { "content-type": "application/json", ...(opts.headers || {}), "x-workspace": id, ...(usedId === id ? { "x-workspace-used": "1" } : {}) } }).then((r) => ({ r, id }));
+  };
+  const seen = (r, id) => {
+    if (r.headers?.get?.("x-workspace-fresh") === "1" && usedId === id) { usedId = null; try { onForgotten?.(); } catch { /* the banner is best effort */ } }
+    return r;
+  };
+  const first = await send();
+  const r = first.r;
+  if (r.status !== 400) return seen(r, first.id);
   let refused = false;
   try { refused = (await r.clone().json())?.error === "bad_workspace"; } catch { /* not JSON */ }
   if (!refused) return r;
-  workspaceId({ renew: true });
-  return send();
+  if (workspaceId() === first.id) workspaceId({ renew: true });
+  const second = await send();
+  return seen(second.r, second.id);
 }

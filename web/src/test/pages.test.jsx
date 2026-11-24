@@ -45,6 +45,24 @@ describe("Diagram page (rules 5 and 17)", () => {
     await waitFor(() => expect(screen.queryByTestId("pattern-now")).toBeNull());
   });
 
+  it("a key pressed on a button INSIDE an expanded box acts on that button, not on the box: Enter on a neighbour row opens the neighbour", async () => {
+    const user = await h.mount({ page: "diagram" });
+    await screen.findByTestId("pattern-canvas");
+    const box = screen.getByTestId("pat-node-bucket");
+    box.focus(); await user.keyboard("{Enter}");
+    await waitFor(() => expect(screen.getByTestId("pat-node-bucket")).toHaveAttribute("aria-expanded", "true"));
+    const go = document.querySelector("[data-testid='pat-node-bucket'] .dk-passport-go");
+    expect(go).not.toBeNull();
+    go.focus(); await user.keyboard("{Enter}");
+    await waitFor(() => expect(document.querySelectorAll("[aria-expanded='true']")).toHaveLength(1));
+    expect(screen.getByTestId("pat-node-bucket")).toHaveAttribute("aria-expanded", "false"); // the neighbour opened (the open box moved); the wrapper did not swallow the key
+    const open = document.querySelector("[aria-expanded='true']");
+    expect(open.getAttribute("data-testid")).not.toBe("pat-node-bucket");
+    // Space on the box itself still toggles it
+    box.focus(); await user.keyboard(" ");
+    await waitFor(() => expect(screen.getByTestId("pat-node-bucket")).toHaveAttribute("aria-expanded", "true"));
+  });
+
   it("when the server says there is no such diagram the page says so and draws nothing by hand", async () => {
     await h.mount({ overrides: { "/api/diagram": () => jsonResponse(404, { error: "unknown_diagram", message: "no such diagram; the lab has: rate-limit-bucket" }) }, page: "diagram" });
     expect(await screen.findByTestId("diagram-error")).toHaveTextContent("This diagram could not be loaded");

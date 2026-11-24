@@ -7,31 +7,34 @@ import fs from 'node:fs';
 const TOKEN = /\{\{(\w+)\}\}/g;
 const MAX_CAST = 40;
 
-const pack = (o) => ({
-  castBrand: o.brand,
+// Every string that carries a company name is built from the ONE brand, so a customer.config brand override reaches all of them (the key, the MCP app, the A2A
+// app). The pack parts below are generic nouns; nothing in them names a company. The agents' labels are roles, not brands.
+const pack = (o, brand = o.brand) => ({
+  castBrand: brand,
   castAgentA: o.agentA, castAgentB: o.agentB, castAgentC: o.agentC,
-  castLlmKey: o.llmKey, castLlmUse: o.llmUse,
-  castMcpApp: o.mcpApp, castA2aApp: o.a2aApp,
+  castLlmKey: `${brand} ${o.llmKey}`, castLlmUse: o.llmUse,
+  castMcpApp: `${brand} ${o.mcpApp} (MCP app)`, castA2aApp: `${brand} ${o.a2aApp} (A2A app)`,
   castBurstWhy: o.burstWhy, castSlowWhy: o.slowWhy,
 });
 
-export const VERTICALS = {
-  finance: pack({
+const PARAMS = {
+  finance: {
     brand: 'Fabrikam Bank', agentA: 'Statement export agent', agentB: 'Fraud review agent', agentC: 'Branch hours agent',
-    llmKey: 'Fabrikam customer chat key', llmUse: 'customer chat', mcpApp: 'Fabrikam ledger tools (MCP app)', a2aApp: 'Fabrikam payments desk (A2A app)',
+    llmKey: 'customer chat key', llmUse: 'customer chat', mcpApp: 'ledger tools', a2aApp: 'payments desk',
     burstWhy: 'Month-end statement requests all arrive in the same second', slowWhy: 'A long fraud-review answer keeps the call open for seconds',
-  }),
-  health: pack({
+  },
+  health: {
     brand: 'Contoso Health', agentA: 'Appointment reminder agent', agentB: 'Referral triage agent', agentC: 'Clinic hours agent',
-    llmKey: 'Contoso patient assistant key', llmUse: 'patient questions', mcpApp: 'Contoso scheduling tools (MCP app)', a2aApp: 'Contoso referral desk (A2A app)',
+    llmKey: 'patient assistant key', llmUse: 'patient questions', mcpApp: 'scheduling tools', a2aApp: 'referral desk',
     burstWhy: 'Every clinic opens its schedule at 08:00 and the reminders go out together', slowWhy: 'A long referral summary keeps the call open for seconds',
-  }),
-  retail: pack({
+  },
+  retail: {
     brand: 'Northwind Retail', agentA: 'Order status agent', agentB: 'Returns desk agent', agentC: 'Store hours agent',
-    llmKey: 'Northwind shopper assistant key', llmUse: 'shopper questions', mcpApp: 'Northwind catalog tools (MCP app)', a2aApp: 'Northwind fulfilment desk (A2A app)',
+    llmKey: 'shopper assistant key', llmUse: 'shopper questions', mcpApp: 'catalog tools', a2aApp: 'fulfilment desk',
     burstWhy: 'A flash sale sends every shopper to the assistant at once', slowWhy: 'A long product comparison keeps the call open for seconds',
-  }),
+  },
 };
+export const VERTICALS = Object.fromEntries(Object.entries(PARAMS).map(([v, o]) => [v, pack(o)]));
 export const DEFAULT_VERTICAL = 'finance';
 export const DEFAULT_CAST = VERTICALS[DEFAULT_VERTICAL];
 
@@ -59,14 +62,14 @@ export const verticalFrom = (id) => (typeof id === 'string' && Object.hasOwn(VER
 // Only the brand, as a short plain string; anything else in the file is ignored. A value with a URL or an email is ignored too.
 const CONTROL = /[\u0000-\u001f\u007f-\u009f‪-‮⁦-⁩]/g;
 export function loadCast(file, vertical = DEFAULT_VERTICAL) {
-  const cast = { ...VERTICALS[verticalFrom(vertical)] };
-  if (!file) return cast;
+  const v = verticalFrom(vertical);
+  if (!file) return { ...VERTICALS[v] };
   try {
-    const v = JSON.parse(fs.readFileSync(file, 'utf8'))?.cast?.brand;
-    if (typeof v === 'string' && v.trim()) {
-      const clean = v.replace(CONTROL, ' ').trim().slice(0, MAX_CAST);
-      if (!/:\/\/|@/.test(clean)) { cast.castBrand = clean; cast.castLlmKey = `${clean} assistant key`; }
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8'))?.cast?.brand;
+    if (typeof raw === 'string') {
+      const clean = raw.replace(CONTROL, ' ').trim().slice(0, MAX_CAST).trim(); // checked again after cleaning: a brand of only control characters is empty, so the default stays
+      if (clean && !/:\/\/|@/.test(clean)) return pack(PARAMS[v], clean);
     }
   } catch { /* no file or not JSON: the defaults */ }
-  return cast;
+  return { ...VERTICALS[v] };
 }

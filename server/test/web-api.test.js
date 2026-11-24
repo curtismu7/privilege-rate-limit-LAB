@@ -237,3 +237,53 @@ test('observability: an idle run made no decisions (it is not "nothing has run")
   const m = await (await get('/api/observability', 'small-ws')).json();
   assert.equal(m.run.truncated, false);
 });
+
+test('workspaces: a read never creates state, and the least recently USED workspace is the one evicted', async () => {
+  const { createWorkspaces } = await import('../src/workspaces.js');
+  const ws = createWorkspaces({ max: 3 });
+  assert.equal(ws.peek('a'), null); assert.equal(ws.size(), 0, 'peek creates nothing');
+  ws.get('a'); ws.get('b'); ws.get('c');
+  ws.peek('a'); // a is used again: b is now the least recently used
+  ws.get('d');
+  assert.equal(ws.has('b'), false, 'b was evicted, not a');
+  assert.equal(ws.has('a'), true); assert.equal(ws.has('c'), true); assert.equal(ws.has('d'), true);
+  ws.get('c'); ws.get('e');
+  assert.equal(ws.has('a'), false, 'a is now the oldest use'); assert.equal(ws.has('c'), true);
+  assert.equal(ws.size(), 3);
+  // the API: GET /api/info and /api/observability do not create a workspace
+  const probe = createApp({ env: { WEB_DIST: '/nonexistent' }, log: () => {}, workspaces: createWorkspaces({ max: 5 }) });
+  const s = await startHttpServer({ port: 0, host: '127.0.0.1', app: probe });
+  try {
+    const b = s.url.replace(/\/$/, '');
+    for (const p of ['/api/info', '/api/observability']) await fetch(`${b}${p}`, { headers: { 'x-workspace': 'read-only-ws' } });
+    assert.equal(probe.locals.workspaces.size(), 0, 'two reads created no state');
+    await fetch(`${b}/api/scenario/refusal-recorded`, { method: 'POST', headers: { ...J, origin: b, 'x-workspace': 'read-only-ws' }, body: '{}' });
+    assert.equal(probe.locals.workspaces.size(), 1, 'a run does');
+  } finally { await new Promise((r) => s.server.close(r)); }
+});
+
+test('a forgotten workspace is signalled: a tab that says it already used an id the server no longer holds gets X-Workspace-Fresh and info.fresh; nobody else does', async () => {
+  const { createWorkspaces } = await import('../src/workspaces.js');
+  const app = createApp({ env: { WEB_DIST: '/nonexistent' }, log: () => {}, workspaces: createWorkspaces({ max: 2 }) });
+  const s = await startHttpServer({ port: 0, host: '127.0.0.1', app });
+  try {
+    const b = s.url.replace(/\/$/, '');
+    const run = (ws) => fetch(`${b}/api/scenario/refusal-recorded`, { method: 'POST', headers: { ...J, origin: b, 'x-workspace': ws, 'x-workspace-used': '1' }, body: '{}' });
+    const info = async (ws, used) => { const r = await fetch(`${b}/api/info`, { headers: { 'x-workspace': ws, ...(used ? { 'x-workspace-used': '1' } : {}) } }); return { header: r.headers.get('x-workspace-fresh'), body: await r.json() }; };
+    // a brand-new tab has not used its id yet: no claim, no signal
+    let r = await info('tab-a', false); assert.equal(r.header, null); assert.equal(r.body.fresh, false);
+    await run('tab-a'); await run('tab-b');
+    r = await info('tab-a', true); assert.equal(r.header, null, 'the server still holds it'); assert.equal(r.body.fresh, false);
+    await run('tab-c'); // evicts the least recently used: tab-b (tab-a was just used)
+    r = await info('tab-b', true); assert.equal(r.header, '1'); assert.equal(r.body.fresh, true);
+    assert.equal((await info('tab-b', false)).header, null, 'without the claim there is no signal (a tab that never used it)');
+    // the answer to the write that re-creates it also carries the signal, once
+    const again = await run('tab-b'); assert.equal(again.headers.get('x-workspace-fresh'), '1');
+    assert.equal((await info('tab-b', true)).header, null, 'and it is held again');
+    assert.equal(app.locals.workspaces.size(), 2);
+    // a server restart looks the same: an id it has never held, claimed as used
+    const fresh = createApp({ env: { WEB_DIST: '/nonexistent' }, log: () => {} });
+    const s2 = await startHttpServer({ port: 0, host: '127.0.0.1', app: fresh });
+    try { const rr = await fetch(`${s2.url}api/info`, { headers: { 'x-workspace': 'tab-a', 'x-workspace-used': '1' } }); assert.equal(rr.headers.get('x-workspace-fresh'), '1'); } finally { await new Promise((x) => s2.server.close(x)); }
+  } finally { await new Promise((r) => s.server.close(r)); }
+});

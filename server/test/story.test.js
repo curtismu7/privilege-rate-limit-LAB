@@ -59,6 +59,11 @@ test('the verticals fall back to the default; the brand override is only a short
     const f = path.join(dir, 'b.json'); fs.writeFileSync(f, JSON.stringify({ cast: { brand: bad } }));
     assert.equal(loadCast(f).castBrand, DEFAULT_CAST.castBrand, String(bad));
   }
+  // a brand that is only control or bidi characters is empty once cleaned: the default stays (it is checked again after cleaning)
+  for (const empty of ['\u0007\u0008', '\u202e\u202c', '  \u0000  ', '\u2066\u2069']) {
+    const f = path.join(dir, 'e.json'); fs.writeFileSync(f, JSON.stringify({ cast: { brand: empty } }));
+    assert.equal(loadCast(f).castBrand, DEFAULT_CAST.castBrand, JSON.stringify(empty));
+  }
   assert.equal(loadCast(path.join(dir, 'missing.json')).castBrand, DEFAULT_CAST.castBrand);
   assert.equal(loadCast('').castBrand, DEFAULT_CAST.castBrand);
 });
@@ -84,4 +89,22 @@ test('nothing the lab shows claims that a rate-limit refusal does or does not tr
   const all = JSON.stringify([rawStory(), buildLimits()]);
   assert.equal(/(triggers?|causes?|cannot trigger|can trigger|does not trigger|will trigger|never triggers?) (a )?(model )?fallback/i.test(all.replace(/Can a rate-limit refusal trigger model fallback\?/g, '').replace(/whether a rate-limit refusal can trigger model fallback/gi, '')), false);
   assert.equal(/baseline[- ]jump detector (is|works|catches|flags)/i.test(all), false);
+});
+
+test('a customer.config brand reaches every brand-bearing string: no other company name is left in the intro, the beats, the talk track or the labels, in any vertical', () => {
+  const dir = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'prl-brand-'));
+  const f = path.join(dir, 'c.json'); fs.writeFileSync(f, JSON.stringify({ cast: { brand: 'Acme Test Co' } }));
+  const others = ['Fabrikam', 'Contoso', 'Northwind'];
+  for (const v of Object.keys(VERTICALS)) {
+    const cast = loadCast(f, v);
+    assert.equal(cast.castBrand, 'Acme Test Co');
+    const story = buildStory(cast, v);
+    assert.match(story.intro, /^Acme Test Co puts Acme Test Co [a-z ]+ key \(/, story.intro);
+    assert.match(story.intro, /Acme Test Co [a-z ]+ \(MCP app\)/); assert.match(story.intro, /Acme Test Co [a-z ]+ \(A2A app\)/);
+    const text = JSON.stringify({ intro: story.intro, beats: story.beats, talkTrack: story.talkTrack, labels: story.agentLabels, cast: story.cast });
+    for (const name of others) assert.ok(!text.includes(name), `${v}: ${name} is still in the story`);
+    assert.ok(!text.includes('{{'));
+    // and every cast string that names a company is built from the brand: the defaults name only their own
+    for (const [k, val] of Object.entries(cast)) for (const name of others) assert.ok(!String(val).includes(name), `${v}.${k} still names ${name}`);
+  }
 });

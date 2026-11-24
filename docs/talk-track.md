@@ -30,7 +30,7 @@ The same nodes and the same burst, but the limit lives in a shared store (a Redi
 
 ## One agent uses up the app's cap
 
-Fabrikam ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer.
+Fabrikam Bank ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer.
 
 ## What the client sees
 

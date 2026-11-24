@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import TopMenu, { applyFontSize } from "./top-menu/TopMenu.jsx";
 import TalkTrackDialog from "./talk-track/TalkTrackDialog.jsx";
 import ModeToggle from "./components/ModeToggle.jsx";
 import PresenterSay from "./components/PresenterSay.jsx";
 import useLab from "./hooks/useLab";
 import { clearScenarioHash } from "./hashNav.js";
+import { visible } from "./safeText";
+import { onWorkspaceForgotten } from "./workspace.js";
 import RateLimitsPage from "./pages/RateLimitsPage.jsx";
 import DiagramPage from "./pages/DiagramPage.jsx";
 import ObservabilityPage from "./pages/ObservabilityPage.jsx";
@@ -36,7 +38,10 @@ function initialFont() { try { const f = localStorage.getItem(FONT_KEY); return 
 const pageFromHash = () => { const h = window.location.hash.replace("#", "").split("/")[0]; return PAGES.some((p) => p.id === h) ? h : "limits"; };
 
 export default function App() {
-  const lab = useLab();
+  // A real mode change clears the scenario part of the hash (a failed switch does not), before the page restarts.
+  const lab = useLab({ onRestart: clearScenarioHash });
+  const labRef = useRef(lab); labRef.current = lab;
+  const [forgotten, setForgotten] = useState(false);
   const [page, setPage] = useState(pageFromHash());
   const [presenter, setPresenter] = useState(false);
   const [talkOpen, setTalkOpen] = useState(false);
@@ -47,6 +52,8 @@ export default function App() {
   useEffect(() => { if (theme === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = theme; }, [theme]);
   useEffect(() => { applyFontSize(fontStep); try { localStorage.setItem(FONT_KEY, fontStep); } catch { /* not remembered */ } }, [fontStep]);
   useEffect(() => { const on = () => setPage(pageFromHash()); window.addEventListener("hashchange", on); return () => window.removeEventListener("hashchange", on); }, []);
+  // The server no longer held this tab's workspace (evicted, or restarted): say so, and load the lab's state again.
+  useEffect(() => onWorkspaceForgotten(() => { setForgotten(true); labRef.current.reload(); }), []);
   useEffect(() => {
     // P toggles presenter mode, Escape leaves it. Not with Ctrl, Cmd or Alt (Cmd+P is the browser's print), not on a key repeat, and not while focus is in
     // a control or editable text (typing a "p" in a field, or Space and Enter on a button, must never flip the mode).
@@ -61,9 +68,9 @@ export default function App() {
   }, []);
 
   const pickTheme = (next) => { try { if (next === "auto") localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, next); } catch { /* not remembered */ } setTheme(next); };
-  const select = (id) => { setPage(id); try { window.history.replaceState(null, "", `#${id}`); } catch { /* ignore */ } };
   const reset = async () => {
     clearScenarioHash();
+    setForgotten(false);
     const ok = await lab.reset();
     setResetMsg(ok ? "Reset: the run log, the latest run and the diagram's box positions are back to the start." : "Reset failed on the server; the view was reloaded.");
   };
@@ -71,6 +78,8 @@ export default function App() {
   const { source, story, info } = lab;
   const banner = info?.banner || BANNER_UNKNOWN;
   const View = PAGES.find((p) => p.id === page).View;
+  // The shared dialog renders what it is given as it is, so the strings go through visible() here (control and bidi characters as escapes).
+  const talk = useMemo(() => (story?.talkTrack ?? []).map((t) => ({ ...t, title: visible(t.title), say: visible(t.say) })), [story]);
   const say = !story ? [] : story.talkTrack.filter((x) => (story.pageTalk[page] || []).includes(x.id));
 
   return (
@@ -82,7 +91,7 @@ export default function App() {
           <span className="shell-badge" data-testid="mode" title="Mock: a simulation on a lab clock, nothing leaves this machine">{source === "real" ? "Real" : "Mock"}</span>
         </span>
         <nav className="shell-nav" aria-label="Lab sections">
-          {PAGES.map((p) => <a key={p.id} href={`#${p.id}`} aria-current={page === p.id ? "page" : undefined} onClick={(e) => { e.preventDefault(); select(p.id); }}>{p.label}</a>)}
+          {PAGES.map((p) => <a key={p.id} href={`#${p.id}`} aria-current={page === p.id ? "page" : undefined} onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; setPage(p.id); }}>{p.label}</a>)}
         </nav>
         <TopMenu
           vertical={{ value: lab.vertical, onChange: (v) => { clearScenarioHash(); lab.setVertical(v); }, options: story ? story.verticals : ["finance"] }}
@@ -93,7 +102,7 @@ export default function App() {
           help={{ href: "https://github.com/curtismu7/privilege-rate-limit-LAB#readme" }}
           version={info?.version ? `v${info.version}` : null}
           onReset={reset}
-          extra={<ModeToggle source={source || "mock"} info={info} onSwitch={(next) => { if (next !== source) clearScenarioHash(); return lab.switchMode(next); }} />}
+          extra={<ModeToggle source={source || "mock"} info={info} onSwitch={lab.switchMode} />}
         />
       </header>
       <main className="page">
@@ -105,6 +114,12 @@ export default function App() {
             <p>The lab could not be reloaded ({lab.error}). What is on screen is the last data it loaded.</p>
             <button type="button" onClick={lab.reload} data-testid="retry-reload">Try again</button>
           </div>
+        )}
+        {forgotten && (
+          <p className="field-error" role="status" data-testid="workspace-forgotten">
+            The server forgot this workspace; the lab was reset to its defaults. Your runs on screen are still here, but the run count and "What this run left behind" start over.{" "}
+            <button type="button" onClick={() => setForgotten(false)} data-testid="workspace-forgotten-dismiss">Dismiss</button>
+          </p>
         )}
         <p className={resetMsg ? "reset-note" : "sr-only"} role="status" aria-live="polite" data-testid="reset-note">{resetMsg}</p>
         {!presenter && <div className="page-head"><p className="head__intro" data-testid="head-intro">{PAGE_INTRO[page]}</p></div>}
@@ -118,7 +133,7 @@ export default function App() {
           ) : !story || !info ? <p className="muted" role="status">Loading...</p> : <View key={`${page}-${lab.epoch}`} lab={lab} />}
         </div>
       </main>
-      <TalkTrackDialog isOpen={talkOpen} onClose={() => setTalkOpen(false)} talk={story?.talkTrack ?? []} />
+      <TalkTrackDialog isOpen={talkOpen} onClose={() => setTalkOpen(false)} talk={talk} />
     </div>
   );
 }

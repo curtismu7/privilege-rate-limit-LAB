@@ -156,7 +156,7 @@
     {
       "id": "try-app-cap-exhausted-by-one-agent",
       "label": "Scenario 6: One agent uses up the app's cap",
-      "description": "Fabrikam ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer.",
+      "description": "Fabrikam Bank ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer.",
       "group": "try-it",
       "action": {
         "type": "route",
@@ -311,7 +311,7 @@
     {
       "id": "S06",
       "title": "One agent uses up the app's cap",
-      "say": "Fabrikam ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer."
+      "say": "Fabrikam Bank ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer."
     },
     {
       "id": "S07",
