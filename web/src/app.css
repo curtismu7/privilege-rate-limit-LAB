@@ -244,3 +244,6 @@ label:not(.inline):not(.check) > input:not([type="checkbox"]):not([type="radio"]
 /* A long agent id in a trace title wraps instead of widening the page (the shared GatewayTrace is vendored, so this is the page's own rule around it). */
 .gw-trace summary, .gw-trace strong, .gw-trace .gw-evidence { overflow-wrap: anywhere; min-width: 0; }
 .gw-trace summary { max-width: 100%; }
+.about h2 { font-size: 17px; margin: 0 0 8px; }
+.about p, .about ul { margin: 6px 0; line-height: 1.5; }
+.about ul { padding-left: 20px; }

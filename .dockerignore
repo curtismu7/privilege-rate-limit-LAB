@@ -6,6 +6,7 @@ secrets
 *.pem
 *.key
 customer.config.json
+config
 .git
 .github
 .githooks

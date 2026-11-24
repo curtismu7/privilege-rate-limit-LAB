@@ -2,6 +2,8 @@
 # The server binds 0.0.0.0 INSIDE the container (PRL_BIND is the opt-in), but the port is published on loopback only.
 # Do not change the 127.0.0.1 below. Port 7837 is PROVISIONAL (not claimed on the board yet); HOST_PORT overrides the host side.
 # Mock only: no .env, no key, no secrets. The lab makes no outbound call.
+# Optional brand override: put customer.config.json (see customer.config.example.json) in ./config/ (git-ignored); it is mounted read-only at /run/config and the
+# server reads it from there (CUSTOMER_CONFIG). A missing file is not an error: the lab then uses its default cast.
 name: privilege-rate-limit-lab
 
 services:
@@ -13,7 +15,10 @@ services:
     environment:
       PORT: "7837"
       PRL_BIND: 0.0.0.0
+      CUSTOMER_CONFIG: ${CUSTOMER_CONFIG:-/run/config/customer.config.json}
       LAB_ALLOWED_HOSTS: ${LAB_ALLOWED_HOSTS:-local.ping-devops.com,privilege-rate-limit-lab.local.ping-devops.com}
+    volumes:
+      - ./config:/run/config:ro
     read_only: true
     tmpfs:
       - /tmp

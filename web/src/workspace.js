@@ -40,7 +40,8 @@ export function workspaceId({ renew = false } = {}) {
 // arrive (a slow one from before a Reset, say) cannot fire the banner.
 let usedId = null;
 let gen = 0;
-export const markWorkspaceUsed = () => { usedId = workspaceId(); gen += 1; };
+// The claim only changes when the used id does: a run that finishes while a claimed request is in flight (same id) must not make that request's answer stale.
+export const markWorkspaceUsed = () => { const id = workspaceId(); if (usedId !== id) { usedId = id; gen += 1; } };
 export const clearWorkspaceUsed = () => { usedId = null; gen += 1; };
 // Reset: the server drops this workspace ON PURPOSE, so the reset call itself must not claim it (it would be answered "fresh" and bring the banner straight
 // back). The claim is put back if the reset did not succeed (the server still holds the workspace).

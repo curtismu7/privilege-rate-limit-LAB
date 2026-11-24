@@ -70,13 +70,13 @@ test('non-root, read-only, no capabilities, no new privileges, a tmpfs for /tmp'
 
 test('no secret anywhere: the environment block holds only non-secret settings, the Dockerfile sets none, the build context excludes them', () => {
   const keys = block('environment').map((l) => l.trim()).filter((l) => l && !l.startsWith('#')).map((l) => l.split(':')[0]);
-  assert.deepEqual(keys.sort(), ['LAB_ALLOWED_HOSTS', 'PORT', 'PRL_BIND']);
+  assert.deepEqual(keys.sort(), ['CUSTOMER_CONFIG', 'LAB_ALLOWED_HOSTS', 'PORT', 'PRL_BIND']);
   assert.ok(!/env_file|secrets/.test(uncommented('docker-compose.yml')), 'Mock only: no env_file and no secrets mount');
   assert.ok(!/PRIVATE KEY|\.pem|\.env|secrets|ARG /i.test(uncommented('Dockerfile')));
   const ignore = here('.dockerignore').split('\n');
-  for (const p of ['.env', '.env.*', 'secrets', '*.pem', '*.key', '.git', 'customer.config.json']) assert.ok(ignore.includes(p), `.dockerignore excludes ${p}`);
+  for (const p of ['.env', '.env.*', 'secrets', '*.pem', '*.key', '.git', 'customer.config.json', 'config']) assert.ok(ignore.includes(p), `.dockerignore excludes ${p}`);
   const git = here('.gitignore').split('\n');
-  for (const p of ['.env', 'secrets/*', '*.pem', 'node_modules/', 'dist/', 'customer.config.json']) assert.ok(git.includes(p), `.gitignore has ${p}`);
+  for (const p of ['.env', 'secrets/*', '*.pem', 'node_modules/', 'dist/', 'customer.config.json', 'config/*', '!config/.gitkeep']) assert.ok(git.includes(p), `.gitignore has ${p}`);
 });
 
 test('LAB_ALLOWED_HOSTS defaults to the lab-proxy names, every one a valid host name', () => {
@@ -128,4 +128,13 @@ test('the check itself works: it flags an excluded source and lets an allowed on
   assert.equal(dockerignoreExcludes(['**/dist'], 'web/dist'), true);
   assert.equal(dockerignoreExcludes(['docs', 'scripts'], 'server/src'), false);
   assert.equal(dockerignoreExcludes(['docs'], 'package.json'), false);
+});
+
+test('the brand override works in Docker: ./config is mounted read-only at /run/config, CUSTOMER_CONFIG points into it, the directory is committed empty so the mount never creates anything, and the server reads exactly that path', () => {
+  assert.deepEqual(block('volumes').map((l) => l.trim()), ['- ./config:/run/config:ro']);
+  assert.match(here('docker-compose.yml'), /CUSTOMER_CONFIG: \$\{CUSTOMER_CONFIG:-\/run\/config\/customer\.config\.json\}/);
+  assert.ok(fs.statSync(new URL('../config/', import.meta.url)).isDirectory());
+  assert.deepEqual(fs.readdirSync(new URL('../config/', import.meta.url)).filter((f) => f !== '.gitkeep'), [], 'no config file is committed or left here');
+  assert.match(fs.readFileSync(new URL('../server/src/app.js', import.meta.url), 'utf8'), /env\.CUSTOMER_CONFIG \|\|/);
+  assert.match(here('README.md'), /config\/customer\.config\.json/);
 });

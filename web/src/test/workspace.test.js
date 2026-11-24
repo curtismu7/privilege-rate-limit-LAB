@@ -116,3 +116,18 @@ describe("the forgotten-workspace signal: what may and may not fire it", () => {
     off();
   });
 });
+
+describe("the claim only changes when the used id does", () => {
+  it("a run that finishes while a claimed request is in flight (same id) does not make that request's 'forgotten' answer stale", async () => {
+    let release; const hold = new Promise((r) => { release = r; });
+    globalThis.fetch = async () => { await hold; return json(200, {}, { "x-workspace-fresh": "1" }); };
+    let told = 0; const off = onWorkspaceForgotten(() => { told += 1; });
+    markWorkspaceUsed();
+    const pending = workspaceFetch("/api/info"); // sent with the claim
+    markWorkspaceUsed(); markWorkspaceUsed(); // two runs finish meanwhile, under the same id
+    release();
+    await pending;
+    expect(told).toBe(1); // the signal is not lost
+    off();
+  });
+});
