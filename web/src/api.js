@@ -21,5 +21,6 @@ export const getObservability = () => call("GET", "/api/observability");
 // Rule 19: exactly { source }; a 409 (Real is not available) is data, shown as the server worded it.
 export const setMode = (source) => call("POST", "/api/mode", { source });
 export const postScenario = (id) => call("POST", `/api/scenario/${encodeURIComponent(id)}`, {});
-export const postRun = (engine, config, profile) => call("POST", "/api/run", { engine, config, profile });
+// record: false is a look-aside run (the cluster compare): the server answers it but does not count it or keep it as the latest run.
+export const postRun = (engine, config, profile, { record = true } = {}) => call("POST", record ? "/api/run" : "/api/run?record=0", { engine, config, profile });
 export const postReset = () => call("POST", "/api/reset", {});

@@ -12,3 +12,18 @@ Demo-tier standalone lab. Steps 1 (engines, API) and 2 (web UI, presenter mode, 
 - Every scenario needs a test and a doctor check (`checks.js` loops over `SCENARIOS`). Hostile input is bounded in `bounds.js`; config is validated strictly (unknown fields refused, zero or negative limits refused).
 - Loopback bind, Host check 421, same-origin JSON writes, netguard with a self-test. Only `.example` and `.invalid` hosts in shipped text (a test scans).
 - No AI attribution in commits or files. Never push, never create a repo from here; the GitHub account is `curtismu7`.
+
+## Recorded decisions
+- The host-scan test (`server/test/repo.test.js`) exempts exactly one non-reserved host: `github.com/curtismu7/privilege-rate-limit-LAB` (this lab's own public repo: the Help link, the content pack's source URL, the shelf entry). The Learning Hub's validator requires a real URI for a source, so `.invalid` would not pass it. Any other host in shipped text still fails. Vendored shared files and the CI workflow are exempt because they are pinned or not shipped text.
+
+## Never-repeat lessons
+- Every Dockerfile `COPY` source must survive `.dockerignore` (a compose test checks it; a real OrbStack `docker compose up --build` proves it).
+- The first story and talk-track load sends `vertical=finance` like every later one (the server falls back for a missing one, so a lost parameter would not show as an error); a test pins it.
+- Reset, a change of industry and a real mode change clear the scenario part of the hash (`#limits/<id>`); a page runs a hash scenario only on a deliberate navigation (first load, a link, the back button), never on a remount.
+- The workspace-id rule is the same on the client and the server (a test compares them), and the random fallback fills its array in place (`TypedArray.map` makes a new one and leaves zeros).
+- Pressing the mode button that is already active changes nothing: no request, no reload, no new epoch.
+- `npm run reset` takes a workspace id (arg or `PRL_WORKSPACE`) and sends `X-Workspace`; with none it resets only `default`.
+- Netguard allows a literal IP in `dns.lookup` (it needs no DNS, and an opted-in `PRL_BIND` on a LAN address listens through it); connecting to it is still refused.
+- Shortcut keys ignore Ctrl, Cmd and Alt, key repeats and focus in a field, select, button, link or editable text; Escape always leaves presenter mode.
+- Static scans skip `.github/` and the shared attribution script (they name the very strings they search for).
+- Before claiming a port, check running containers and compose files (`docker ps`; the `ap-*` labs use 7839 to 7843), not only the registry.

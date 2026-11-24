@@ -4,6 +4,7 @@ import TalkTrackDialog from "./talk-track/TalkTrackDialog.jsx";
 import ModeToggle from "./components/ModeToggle.jsx";
 import PresenterSay from "./components/PresenterSay.jsx";
 import useLab from "./hooks/useLab";
+import { clearScenarioHash } from "./hashNav.js";
 import RateLimitsPage from "./pages/RateLimitsPage.jsx";
 import DiagramPage from "./pages/DiagramPage.jsx";
 import ObservabilityPage from "./pages/ObservabilityPage.jsx";
@@ -47,10 +48,13 @@ export default function App() {
   useEffect(() => { applyFontSize(fontStep); try { localStorage.setItem(FONT_KEY, fontStep); } catch { /* not remembered */ } }, [fontStep]);
   useEffect(() => { const on = () => setPage(pageFromHash()); window.addEventListener("hashchange", on); return () => window.removeEventListener("hashchange", on); }, []);
   useEffect(() => {
+    // P toggles presenter mode, Escape leaves it. Not with Ctrl, Cmd or Alt (Cmd+P is the browser's print), not on a key repeat, and not while focus is in
+    // a control or editable text (typing a "p" in a field, or Space and Enter on a button, must never flip the mode).
+    const typing = (t) => !!t && (/^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(t.tagName) || t.isContentEditable === true || t.getAttribute?.("contenteditable") === "" || t.getAttribute?.("contenteditable") === "true" || t.getAttribute?.("role") === "textbox");
     const on = (e) => {
-      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-      if (e.key === "p" || e.key === "P") setPresenter((v) => !v);
-      else if (e.key === "Escape") setPresenter(false);
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "Escape") setPresenter(false); // leaving presenter mode works wherever focus is
+      else if ((e.key === "p" || e.key === "P") && !e.repeat && !typing(e.target)) setPresenter((v) => !v);
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
@@ -59,6 +63,7 @@ export default function App() {
   const pickTheme = (next) => { try { if (next === "auto") localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, next); } catch { /* not remembered */ } setTheme(next); };
   const select = (id) => { setPage(id); try { window.history.replaceState(null, "", `#${id}`); } catch { /* ignore */ } };
   const reset = async () => {
+    clearScenarioHash();
     const ok = await lab.reset();
     setResetMsg(ok ? "Reset: the run log, the latest run and the diagram's box positions are back to the start." : "Reset failed on the server; the view was reloaded.");
   };
@@ -80,7 +85,7 @@ export default function App() {
           {PAGES.map((p) => <a key={p.id} href={`#${p.id}`} aria-current={page === p.id ? "page" : undefined} onClick={(e) => { e.preventDefault(); select(p.id); }}>{p.label}</a>)}
         </nav>
         <TopMenu
-          vertical={{ value: lab.vertical, onChange: lab.setVertical, options: story ? story.verticals : ["finance"] }}
+          vertical={{ value: lab.vertical, onChange: (v) => { clearScenarioHash(); lab.setVertical(v); }, options: story ? story.verticals : ["finance"] }}
           theme={{ value: theme, onChange: pickTheme }}
           fontSize={{ value: fontStep, onChange: setFontStep }}
           present={{ active: presenter, onToggle: () => setPresenter((v) => !v), label: "Presenter (P)" }}
@@ -88,13 +93,19 @@ export default function App() {
           help={{ href: "https://github.com/curtismu7/privilege-rate-limit-LAB#readme" }}
           version={info?.version ? `v${info.version}` : null}
           onReset={reset}
-          extra={<ModeToggle source={source || "mock"} info={info} onSwitch={lab.switchMode} />}
+          extra={<ModeToggle source={source || "mock"} info={info} onSwitch={(next) => { if (next !== source) clearScenarioHash(); return lab.switchMode(next); }} />}
         />
       </header>
       <main className="page">
         <p className="banner" role="note" data-state="mock" data-testid="banner">{banner}</p>
         {info && info.realAvailable === false && <p className="muted" data-testid="real-reason">Real is off: {info.realReason}</p>}
         {lab.modeError && <p className="field-error" role="alert" data-testid="mode-error-banner">{lab.modeError}</p>}
+        {lab.error && story && (
+          <div className="field-error" role="alert" data-testid="reload-error">
+            <p>The lab could not be reloaded ({lab.error}). What is on screen is the last data it loaded.</p>
+            <button type="button" onClick={lab.reload} data-testid="retry-reload">Try again</button>
+          </div>
+        )}
         <p className={resetMsg ? "reset-note" : "sr-only"} role="status" aria-live="polite" data-testid="reset-note">{resetMsg}</p>
         {!presenter && <div className="page-head"><p className="head__intro" data-testid="head-intro">{PAGE_INTRO[page]}</p></div>}
         {presenter && <PresenterSay say={say} />}

@@ -19,7 +19,7 @@ npm run build        # builds web/dist (React + Vite); the server serves it, the
 npm start            # http://127.0.0.1:7837/ (the page) and /api/ (loopback only)
 npm test             # server (node --test test/*.test.js), web (vitest), scripts (node --test scripts/*.test.mjs)
 npm run doctor       # preflight: every scenario, story tokens, diagram data, netguard self-test, an HTTP pass, port free
-npm run reset        # POST /api/reset on a running lab (the page's Reset does the same, for its workspace)
+npm run reset                    # POST /api/reset for the "default" workspace; `npm run reset -- <base-url> <workspace-id>` (or PRL_WORKSPACE) for one tab. Clears that workspace's run log and latest run only
 docker compose up --build -d   # OrbStack; published on 127.0.0.1:7837 only, non-root, read-only, restart: unless-stopped
 ```
 Node 26. Heavy work on the Air: `air-test . -- npm test` (`git add` new files first).

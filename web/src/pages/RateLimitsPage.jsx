@@ -3,6 +3,7 @@ import { getScenarios, postRun, postScenario } from "../api";
 import { Card, Chip, Loading } from "../components/Bits.jsx";
 import RunBuilder from "../components/RunBuilder.jsx";
 import { RunPanel, Verdict } from "../components/RunViews.jsx";
+import { scenarioFromHash } from "../hashNav.js";
 import { visible } from "../safeText";
 
 // Both runs of a side-by-side get one scale, so a bucket and a fixed window can be compared by eye.
@@ -10,7 +11,6 @@ export const scalesOf = (runs) => ({
   reqMax: Math.max(0, ...runs.flatMap((r) => r.series.map((s) => s.allowed + s.refused + s.errors))),
   lvlMax: Math.max(0, ...runs.flatMap((r) => r.series.flatMap((s) => [s.tokens ?? 0, s.inFlight ?? 0]))),
 });
-const hashScenario = () => window.location.hash.replace("#", "").split("/")[1] || null;
 
 export default function RateLimitsPage({ lab }) {
   const [list, setList] = useState(null);
@@ -20,6 +20,7 @@ export default function RateLimitsPage({ lab }) {
   const [runError, setRunError] = useState(null);
   const [pickedId, setPickedId] = useState(null);
   const seq = useRef(0);
+  const runNo = useRef(0); // one number per run on screen: a panel is keyed by it, so no panel keeps state (a cluster compare) from the run before
 
   useEffect(() => { getScenarios().then((r) => (r.ok ? setList(r.body.scenarios) : setListError(r.body?.message || `HTTP ${r.status}`))); }, []);
 
@@ -30,7 +31,7 @@ export default function RateLimitsPage({ lab }) {
     if (mine !== seq.current) return;
     setBusy(false);
     if (!r.ok) { setRunError({ code: r.body?.error, message: r.body?.message || `HTTP ${r.status}` }); return; }
-    setCurrent({ scenario: sc, result: r.body, requests: sc.runs, traces: r.body.traces });
+    setCurrent({ n: (runNo.current += 1), scenario: sc, result: r.body, requests: sc.runs, traces: r.body.traces });
   }, []);
 
   const custom = useCallback(async (req) => {
@@ -41,17 +42,25 @@ export default function RateLimitsPage({ lab }) {
     setBusy(false);
     if (!r.ok) { setRunError({ code: r.body?.error, message: r.body?.message || `HTTP ${r.status}` }); return; }
     const { traces, ...run } = r.body;
-    setCurrent({ scenario: null, result: { runs: { run } }, requests: { run: req }, traces: { run: traces } });
+    setCurrent({ n: (runNo.current += 1), scenario: null, result: { runs: { run } }, requests: { run: req }, traces: { run: traces } });
   }, []);
 
-  // "#limits/<scenario id>" opens that scenario straight away.
-  const fromHash = useRef(false);
+  // "#limits/<scenario id>" is a deliberate navigation: the page runs that scenario when it is navigated to (a first load, a link such as the Stories page's
+  // "Run this beat", the back button). Reset, a new industry and a real mode change clear the id from the hash first (App.jsx), so a remount never replays it.
+  const listRef = useRef(null); listRef.current = list;
+  const pickRef = useRef(pick); pickRef.current = pick;
+  const startedFor = useRef(null);
   useEffect(() => {
-    if (!list || fromHash.current) return;
-    fromHash.current = true;
-    const sc = list.find((s) => s.id === hashScenario());
+    if (!list || startedFor.current === list) return;
+    startedFor.current = list;
+    const sc = list.find((s) => s.id === scenarioFromHash());
     if (sc) pick(sc);
   }, [list, pick]);
+  useEffect(() => {
+    const on = () => { const sc = listRef.current?.find((s) => s.id === scenarioFromHash()); if (sc) pickRef.current(sc); };
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
+  }, []);
 
   // On a narrow screen the verdict is a long way below the scenario buttons: bring it into view when a run finishes.
   const verdictRef = useRef(null);
@@ -90,7 +99,7 @@ export default function RateLimitsPage({ lab }) {
           <div ref={verdictRef} className="verdict-anchor"><Verdict scenario={current.scenario} result={current.result} /></div>
           <div className={runs.length > 1 ? "cols" : ""} data-testid="runs">
             {runs.map(([label, run]) => (
-              <RunPanel key={`${pickedId || "custom"}-${label}`} label={label} run={run} request={current.requests[label]} traces={current.traces?.[label]} labels={labels} shared={shared} />
+              <RunPanel key={`${current.n}-${label}`} label={label} run={run} request={current.requests[label]} traces={current.traces?.[label]} labels={labels} shared={shared} />
             ))}
           </div>
           {runs.length > 1 && <Chip state="info" testId="same-scale">Both charts use one scale so they can be compared. <span className="muted">Lab model, UNVERIFIED against the product.</span></Chip>}

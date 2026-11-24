@@ -38,14 +38,16 @@ describe("the shell: banner, Mock/Real, presenter, talk track, Reset, themes", (
     expect(screen.getByTestId("real-reason")).toHaveTextContent(info.realReason);
   });
 
-  it("switching to Mock calls POST /api/mode with exactly { source } and reloads; a 409 for Real is shown as the server worded it", async () => {
+  it("pressing the Mock button that is already pressed changes nothing: no request, no reload, and a result on screen stays", async () => {
     const user = await h.mount({ page: "limits" });
+    await user.click(await screen.findByTestId("scenario-refusal-recorded"));
+    await screen.findByTestId("verdict");
+    const before = h.lab.calls.length;
     await user.click(screen.getByTestId("mode-mock"));
-    await waitFor(() => expect(h.lab.calls.filter((c) => c.method === "POST" && c.path === "/api/mode")).toHaveLength(1));
-    expect(h.lab.calls.find((c) => c.path === "/api/mode").body).toEqual({ source: "mock" });
-    const reloads = h.lab.calls.filter((c) => c.path === "/api/info").length;
-    expect(reloads).toBeGreaterThanOrEqual(2); // the data was loaded again
-    expect((await h.lab.post("/api/mode", { source: "real" })).error).toBe("real_not_available");
+    expect(h.lab.calls.length).toBe(before); // not even a GET
+    expect(screen.getByTestId("verdict")).toBeInTheDocument();
+    expect(h.lab.calls.some((c) => c.path === "/api/mode")).toBe(false);
+    expect((await h.lab.post("/api/mode", { source: "real" })).error).toBe("real_not_available"); // the server still refuses Real
   });
 
   it("a forced 409 on the toggle shows the server's message in the page", async () => {
@@ -85,6 +87,12 @@ describe("the shell: banner, Mock/Real, presenter, talk track, Reset, themes", (
     await user.selectOptions(screen.getByTestId("vertical-select"), "retail");
     await waitFor(() => expect(screen.getByTestId("cast")).toHaveTextContent("Order status agent"));
     expect(h.lab.calls.some((c) => c.path === "/api/story" && /vertical=retail/.test(c.search))).toBe(true);
+  });
+
+  it("the first story load sends the vertical, like every later one (the server falls back for a missing one, which would hide a lost parameter)", async () => {
+    await h.mount({ page: "limits" });
+    const first = h.lab.calls.find((c) => c.path === "/api/story");
+    expect(first.search).toBe("?vertical=finance");
   });
 
   it("every call carries the workspace id (rule 13), the same one for the whole visit", async () => {

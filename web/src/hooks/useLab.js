@@ -31,12 +31,14 @@ export default function useLab() {
 
   // The server decides. A 409 (Real is not available) is shown as the server worded it; nothing else changes.
   const switchMode = useCallback(async (source) => {
+    // Pressing the mode the page is already in changes nothing: no request, no reload, no new epoch (so a result on screen is not thrown away).
+    if (source === info?.source) return { ok: true, unchanged: true };
     const r = await setMode(source);
     if (!r.ok) { setModeError(r.body?.message || `The mode did not change (HTTP ${r.status})`); return { ok: false, message: r.body?.message }; }
     setModeError(null); setEpoch((n) => n + 1);
     await load(vertical);
     return { ok: true };
-  }, [load, vertical]);
+  }, [load, vertical, info?.source]);
 
   const reset = useCallback(async () => {
     const r = await postReset();

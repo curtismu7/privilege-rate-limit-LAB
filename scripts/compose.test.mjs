@@ -95,3 +95,37 @@ test('the image builds the web app, copies only the server source, the diagram d
   assert.match(d, /npm ci --omit=dev/);
   assert.match(d, /^CMD \["node", "server\/src\/index\.js"\]$/m);
 });
+
+// A COPY source that .dockerignore excludes makes the build fail (or copy nothing). A real OrbStack build proves it; this keeps it from regressing without one.
+function dockerignoreExcludes(patterns, source) {
+  const src = source.replace(/^\.\//, '').replace(/\/$/, '');
+  return patterns.some((raw) => {
+    const p = raw.replace(/^\//, '').replace(/\/$/, '');
+    if (!p || p.startsWith('!')) return false;
+    if (p === src || src.startsWith(`${p}/`)) return true;
+    const re = new RegExp(`^${p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*\//g, '(?:.*/)?').replace(/\*/g, '[^/]*')}$`);
+    return re.test(src) || src.split('/').some((_, i, a) => re.test(a.slice(0, i + 1).join('/')));
+  });
+}
+
+test('no COPY source in the Dockerfile is excluded by .dockerignore (the build context really has them)', () => {
+  const patterns = here('.dockerignore').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const sources = [];
+  for (const l of uncommented('Dockerfile').split('\n')) {
+    const m = /^COPY\s+(?!--from)(?:--\S+\s+)*(.+)$/.exec(l.trim());
+    if (m) { const parts = m[1].trim().split(/\s+/); sources.push(...parts.slice(0, -1)); }
+  }
+  assert.ok(sources.length >= 6, `found the COPY sources (${sources.join(', ')})`);
+  for (const s of sources) {
+    assert.ok(fs.existsSync(new URL(`../${s}`, import.meta.url)), `${s} exists in the repo`);
+    assert.equal(dockerignoreExcludes(patterns, s), false, `${s} is excluded by .dockerignore`);
+  }
+});
+
+test('the check itself works: it flags an excluded source and lets an allowed one through', () => {
+  assert.equal(dockerignoreExcludes(['docs', '**/dist', '*.pem'], 'docs'), true);
+  assert.equal(dockerignoreExcludes(['docs'], 'docs/spec.md'), true);
+  assert.equal(dockerignoreExcludes(['**/dist'], 'web/dist'), true);
+  assert.equal(dockerignoreExcludes(['docs', 'scripts'], 'server/src'), false);
+  assert.equal(dockerignoreExcludes(['docs'], 'package.json'), false);
+});

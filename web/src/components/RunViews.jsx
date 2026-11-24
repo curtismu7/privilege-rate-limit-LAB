@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import GatewayTrace from "../gateway-trace/GatewayTrace.jsx";
 import { postRun } from "../api";
 import { visible } from "../safeText";
@@ -48,10 +48,12 @@ export function ClusterView({ run, request }) {
   const [other, setOther] = useState(null);
   const [err, setErr] = useState(null);
   const last = run.series[run.series.length - 1] || {};
+  // A different run replaces this one: the other-way result and its error belong to the run before, so they go.
+  useEffect(() => { setOther(null); setErr(null); }, [run]);
   const flipped = { ...request, config: { ...request.config, shared: !request.config.shared, limit: request.config.limit ? cfgOfLimit(run.config.limit) : request.config.limit } };
   const compare = async () => {
     setErr(null);
-    const r = await postRun(flipped.engine, flipped.config, flipped.profile);
+    const r = await postRun(flipped.engine, flipped.config, flipped.profile, { record: false }); // a look-aside run: not the workspace's latest run, not counted
     if (r.ok) setOther(r.body); else setErr(r.body?.message || `HTTP ${r.status}`);
   };
   const side = (rn, shared) => (

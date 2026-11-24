@@ -89,8 +89,8 @@ export function createApp({ env = process.env, runChecks = () => defaultChecks(e
     const w = stateOf(req);
     w.seq += 1;
     const runId = `r${w.seq}`;
-    const events = eventsForRun(runId, runs);
-    w.last = { runId, kind, id, events };
+    const { events, total } = eventsForRun(runId, runs);
+    w.last = { runId, kind, id, events, total };
     for (const e of events) log(decisionLine(e));
   };
 
@@ -109,8 +109,11 @@ export function createApp({ env = process.env, runChecks = () => defaultChecks(e
       return res.status(400).json({ error: 'invalid_request', message: 'send { engine, config, profile }' });
     }
     const out = runLoad({ engine: b.engine, config: b.config, profile: b.profile });
-    stateOf(req).runs.add({ kind: 'run', engine: out.engine });
-    remember(req, 'run', out.engine, { run: out });
+    // ?record=0 is a look-aside run (the cluster compare): it answers, but it is not "the latest run" and is not counted.
+    if (req.query.record !== '0') {
+      stateOf(req).runs.add({ kind: 'run', engine: out.engine });
+      remember(req, 'run', out.engine, { run: out });
+    }
     res.json({ ...out, traces: tracesForRuns({ run: out }).run });
   });
 
@@ -119,7 +122,10 @@ export function createApp({ env = process.env, runChecks = () => defaultChecks(e
     try {
       const last = stateOf(req).last;
       const record = last ? await buildRunRecord({ runId: last.runId, events: last.events }) : null;
-      res.set('Cache-Control', 'no-store').json({ record, run: last ? { runId: last.runId, kind: last.kind, id: last.id } : null, streams: STREAMS });
+      // A run can make no decision at all (an idle profile): that is not "nothing has run". A run with more decisions than the cap says how many were cut.
+      res.set('Cache-Control', 'no-store').json({
+        record, run: last ? { runId: last.runId, kind: last.kind, id: last.id, decisions: last.total, shown: last.events.length, truncated: last.total > last.events.length } : null, streams: STREAMS,
+      });
     } catch (e) { next(e); }
   });
 

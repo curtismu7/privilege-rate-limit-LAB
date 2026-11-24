@@ -47,7 +47,10 @@ export function eventsForRun(runId, runs) {
     }
   }
   events.sort((a, b) => a.t - b.t);
-  return events.slice(0, MAX_EVENTS_PER_RUN);
+  // `total` counts the decisions the run really made that this list could show: the engine keeps at most 50 refusals per run, and the page shows at most
+  // MAX_EVENTS_PER_RUN rows, so the page says how many were cut instead of presenting the list as the whole run.
+  const unlisted = Object.values(runs).reduce((n, r) => n + Math.max(0, r.totals.refused + r.totals.errors - r.refusals.length), 0);
+  return { events: events.slice(0, MAX_EVENTS_PER_RUN), total: events.length + unlisted };
 }
 
 const PRODUCT = { gateway: 'lab mock gateway (rate limits)' };

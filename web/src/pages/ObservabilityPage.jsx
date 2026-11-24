@@ -23,14 +23,20 @@ export default function ObservabilityPage() {
       </Card>
       {error && <p className="field-error" role="alert" data-testid="obs-error">{visible(error)}</p>}
       {!data && !error && <Loading />}
-      {data && !data.record && (
+      {data && !data.run && (
         <Card tone="neutral" kicker="Empty" title="Nothing has run in this workspace yet" testId="obs-empty">
           <p>Run a scenario on the <a href="#limits">Rate limits</a> page, then come back: the first served call and every refusal of that run appear here, in time order.</p>
+        </Card>
+      )}
+      {data?.run && !data.record && (
+        <Card tone="neutral" kicker="No decisions" title="This run made no decisions" testId="obs-no-decisions">
+          <p data-testid="obs-run">Run {visible(data.run.runId)}: {visible(data.run.kind)} {visible(data.run.id)}. It sent no request (an idle profile, say), so there is nothing to log. That is different from nothing having run.</p>
         </Card>
       )}
       {data?.record && (
         <>
           <p className="muted" data-testid="obs-run">Run {visible(data.run.runId)}: {visible(data.run.kind)} {visible(data.run.id)}</p>
+          {data.run.truncated && <p className="field-error" role="status" data-testid="obs-truncated">Showing {data.run.shown} of {data.run.decisions} rows (the first served call and every refusal of this run). The engine keeps the first 50 refusals of each run and this page lists at most 60 rows, so the rest are not shown, and the absence of a row is not proof that nothing happened.</p>}
           <RunObservability record={data.record} source="mock" streams={data.streams} title="What each layer logged for this run" />
         </>
       )}

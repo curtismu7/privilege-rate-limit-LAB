@@ -19,7 +19,9 @@ export function validWorkspaceId(s) {
 // "w-" and 16 hex characters: always holds a letter (the w), never 24 hex in a row, never a credential part.
 export function freshId() {
   const bytes = new Uint8Array(8);
-  (window.crypto || { getRandomValues: (a) => a.map(() => Math.floor(Math.random() * 256)) }).getRandomValues(bytes);
+  // A typed array's map() makes a NEW array and leaves this one all zeros, so the fallback fills it in place.
+  if (window.crypto?.getRandomValues) window.crypto.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
   return `w-${[...bytes].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 

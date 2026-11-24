@@ -206,3 +206,34 @@ test('rule 19: POST /api/mode answers 409 with the plain reason the page shows, 
   const info = await (await get('/api/info')).json();
   assert.equal(info.realAvailable, false); assert.equal(info.realReason, body.message); assert.equal(info.source, 'mock');
 });
+
+test('?record=0 (the cluster compare) answers but is not the latest run and is not counted', async () => {
+  const ws = 'rec-ws';
+  const body = { engine: 'cluster', config: { nodes: 2, shared: true, limit: { kind: 'bucket', capacity: 5, refillPerSec: 1 } }, profile: { phases: [{ type: 'burst', count: 8, durationMs: 1000 }] } };
+  await post('/api/scenario/refusal-recorded', {}, ws);
+  const a = await (await post('/api/run?record=0', body, ws)).json();
+  assert.equal(a.totals.allowed, 5);
+  assert.equal((await (await get('/api/info', ws)).json()).runsSinceReset, 1, 'not counted');
+  assert.equal((await (await get('/api/observability', ws)).json()).run.id, 'refusal-recorded', 'not the latest run');
+  const before = lines.length;
+  await post('/api/run?record=0', body, ws);
+  assert.equal(lines.length, before, 'and it writes no decision line');
+  await post('/api/run', body, ws);
+  assert.equal((await (await get('/api/info', ws)).json()).runsSinceReset, 2, 'a normal run is counted');
+});
+
+test('observability: an idle run made no decisions (it is not "nothing has run"), and a run with more decisions than the page lists says how many were cut', async () => {
+  const idle = 'idle-ws';
+  await post('/api/run', { engine: 'bucket', config: { capacity: 3, refillPerSec: 1 }, profile: { phases: [{ type: 'idle', durationMs: 2000 }] } }, idle);
+  const j = await (await get('/api/observability', idle)).json();
+  assert.equal(j.record, null); assert.equal(j.run.decisions, 0); assert.equal(j.run.truncated, false); assert.equal(j.run.kind, 'run');
+  const big = 'big-ws';
+  await post('/api/run', { engine: 'bucket', config: { capacity: 1, refillPerSec: 1 }, profile: { phases: [{ type: 'burst', count: 500, durationMs: 1000 }] } }, big);
+  const k = await (await get('/api/observability', big)).json();
+  assert.equal(k.run.decisions, 500, 'the first served call and 499 refusals');
+  assert.equal(k.run.shown, 51, 'the first served call and the 50 refusals the engine keeps'); assert.equal(k.run.truncated, true);
+  assert.deepEqual(assertRunObservability(k.record), []);
+  await post('/api/scenario/refusal-recorded', {}, 'small-ws');
+  const m = await (await get('/api/observability', 'small-ws')).json();
+  assert.equal(m.run.truncated, false);
+});
