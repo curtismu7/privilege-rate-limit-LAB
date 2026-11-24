@@ -1,0 +1,173 @@
+{
+  "schema": "diagram-studio/1",
+  "id": "rate-limit-bucket",
+  "title": "Rate limits: a refilling bucket, in-flight cap and shared limit",
+  "lede": "Request-rate caps run on a continuously refilling bucket, with an in-flight cap for LLM calls; limits can be shared across the gateway cluster through Redis; MCP and A2A applications get their own app-wide RPM and max-concurrent caps (release notes). Units, numbers, the refusal the client sees and how the caps interact are the lab’s own model.",
+  "groups": {
+    "callers": {
+      "label": "Callers",
+      "color": "dark"
+    },
+    "limits": {
+      "label": "Limits at a gateway node",
+      "color": "red"
+    },
+    "shared": {
+      "label": "Shared across nodes",
+      "color": "blue"
+    },
+    "out": {
+      "label": "Outcome (lab model)",
+      "color": "grey"
+    }
+  },
+  "nodes": [
+    {
+      "id": "callers",
+      "group": "callers",
+      "label": "Callers",
+      "sub": [
+        "LLM keys, MCP apps, A2A apps"
+      ],
+      "x": 0,
+      "y": 170
+    },
+    {
+      "id": "bucket",
+      "group": "limits",
+      "label": "Refilling bucket",
+      "sub": [
+        "Request-rate cap, refills continuously (release notes)",
+        "Units and numbers: UNVERIFIED"
+      ],
+      "x": 440,
+      "y": 0
+    },
+    {
+      "id": "inflight",
+      "group": "limits",
+      "label": "In-flight cap",
+      "sub": [
+        "For LLM calls (release notes)",
+        "Slow calls hold slots: lab model"
+      ],
+      "x": 440,
+      "y": 160
+    },
+    {
+      "id": "appcaps",
+      "group": "limits",
+      "label": "App-wide caps",
+      "sub": [
+        "MCP and A2A applications (release notes)",
+        "Own RPM and max-concurrent caps (release notes)"
+      ],
+      "x": 440,
+      "y": 320
+    },
+    {
+      "id": "redis",
+      "group": "shared",
+      "label": "Redis",
+      "sub": [
+        "Limits can be shared across gateway nodes (release notes)",
+        "Outage behaviour: UNVERIFIED"
+      ],
+      "x": 880,
+      "y": 0
+    },
+    {
+      "id": "refusal",
+      "group": "out",
+      "label": "Refusal to the caller",
+      "sub": [
+        "What the client sees: UNVERIFIED",
+        "The lab shows no fallback here"
+      ],
+      "x": 880,
+      "y": 220
+    }
+  ],
+  "edges": [
+    {
+      "source": "callers",
+      "target": "bucket",
+      "label": "1 request-rate check on the bucket"
+    },
+    {
+      "source": "callers",
+      "target": "inflight",
+      "label": "2 an LLM call is checked against the in-flight cap"
+    },
+    {
+      "source": "callers",
+      "target": "appcaps",
+      "label": "3 an MCP or A2A app is checked against its app-wide caps"
+    },
+    {
+      "source": "bucket",
+      "target": "redis",
+      "label": "4 the limit can be shared through Redis"
+    },
+    {
+      "source": "bucket",
+      "target": "refusal",
+      "label": "5a bucket empty: refused (lab model)",
+      "dashed": true
+    },
+    {
+      "source": "inflight",
+      "target": "refusal",
+      "label": "5b no free slot: refused (lab model)",
+      "dashed": true
+    },
+    {
+      "source": "appcaps",
+      "target": "refusal",
+      "label": "5c app-wide cap reached: refused (lab model)",
+      "dashed": true
+    }
+  ],
+  "steps": [
+    {
+      "title": "A refilling bucket",
+      "what": "Request-rate caps run on a bucket that refills continuously, so a burst drains it and capacity returns gradually, not all at once as a fixed window would (lab model).",
+      "why": "Release notes: a continuously refilling bucket. The side-by-side with a fixed window is the lab’s own model. Spike protection is shown only as the bucket’s burst.",
+      "edges": [
+        0
+      ]
+    },
+    {
+      "title": "In-flight cap for LLM calls",
+      "what": "LLM calls are also held to an in-flight cap. In the lab model slow calls hold slots, so the next call can be refused even when the request rate is low.",
+      "edges": [
+        1
+      ]
+    },
+    {
+      "title": "App-wide caps for MCP and A2A",
+      "what": "MCP and A2A applications get their own app-wide requests-per-minute and max-concurrent caps (release notes).",
+      "why": "Lab model: that these are separate from a key’s caps, and that one agent can use up the app’s cap for the others.",
+      "edges": [
+        2
+      ]
+    },
+    {
+      "title": "Shared across the cluster",
+      "what": "Limits can be shared across the gateway cluster through Redis (release notes). In the lab model, without sharing each node would allow the full limit, so a client could get several times it.",
+      "edges": [
+        3
+      ]
+    },
+    {
+      "title": "A refusal",
+      "what": "In the lab model, when the bucket is empty, no slot is free or an app-wide cap is reached, the call is refused.",
+      "why": "UNVERIFIED: the client’s refusal shape. Open question, not shown here: whether a rate-limit refusal can trigger a model fallback.",
+      "edges": [
+        4,
+        5,
+        6
+      ]
+    }
+  ]
+}

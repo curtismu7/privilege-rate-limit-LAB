@@ -10,6 +10,16 @@ permissions:
   contents: read
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+      - run: npm ci
+      - run: npm run build
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -19,6 +29,8 @@ jobs:
           node-version: 26
       - run: npm ci
       - run: npm test
+      # The vendored shared stylesheet must match the hash pinned when it was last re-vendored (and the canonical copy, when it can be fetched).
+      - run: bash scripts/check-ui-standard.sh
 
   doctor:
     runs-on: ubuntu-latest
@@ -29,6 +41,8 @@ jobs:
           node-version: 26
       - run: npm ci
       - run: PORT=7837 npm run doctor
+      - name: content pack validates
+        run: node scripts/validate-content-pack.mjs
 
   forbidden-strings:
     runs-on: ubuntu-latest

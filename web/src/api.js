@@ -1,0 +1,25 @@
+import { workspaceFetch } from "./workspace";
+
+// Every call returns { ok, status, body } and never throws: a refusal (400, 409) is data with a plain message, and a body that is not JSON (a proxy's
+// 502 page) becomes { error, message } so the page always has a sentence to show (rule 23).
+const UNREACHABLE = { ok: false, status: 0, body: { error: "unreachable", message: "The lab server did not answer. Is it running?" } };
+const asBody = (r, body) => (body && typeof body === "object" ? body : { error: "bad_response", message: `The lab answered HTTP ${r.status} without a JSON body` });
+async function call(method, url, payload) {
+  let r;
+  try { r = await workspaceFetch(url, { method, ...(payload === undefined ? {} : { body: JSON.stringify(payload) }) }); } catch { return UNREACHABLE; }
+  let body = null;
+  try { body = await r.json(); } catch { /* not JSON */ }
+  return { ok: r.ok, status: r.status, body: asBody(r, body) };
+}
+
+export const getInfo = () => call("GET", "/api/info");
+export const getStory = (vertical) => call("GET", `/api/story?vertical=${encodeURIComponent(vertical)}`);
+export const getScenarios = () => call("GET", "/api/scenarios");
+export const getLimits = () => call("GET", "/api/limits");
+export const getDiagram = (name, vertical) => call("GET", `/api/diagram?name=${encodeURIComponent(name)}&vertical=${encodeURIComponent(vertical)}`);
+export const getObservability = () => call("GET", "/api/observability");
+// Rule 19: exactly { source }; a 409 (Real is not available) is data, shown as the server worded it.
+export const setMode = (source) => call("POST", "/api/mode", { source });
+export const postScenario = (id) => call("POST", `/api/scenario/${encodeURIComponent(id)}`, {});
+export const postRun = (engine, config, profile) => call("POST", "/api/run", { engine, config, profile });
+export const postReset = () => call("POST", "/api/reset", {});

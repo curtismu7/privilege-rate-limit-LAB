@@ -91,6 +91,7 @@ export function runLoad({ engine, config, profile }) {
   const byReason = Object.create(null);
   const byAgent = Object.create(null);
   const refusals = [];
+  let firstAllowed = null; // the first request served: the trace page shows one served call too
   const start = { t: 0, ...eng.sample() };
   const nTicks = Math.ceil(prof.durationMs / prof.tickMs);
   let idx = 0;
@@ -103,7 +104,7 @@ export function runLoad({ engine, config, profile }) {
       const d = eng.take(r);
       totals.requests += 1;
       const who = r.agent === undefined ? null : (byAgent[r.agent] ??= { allowed: 0, refused: 0, errors: 0 });
-      if (d.outcome === 'allowed') { tick.allowed++; totals.allowed++; if (who) who.allowed++; continue; }
+      if (d.outcome === 'allowed') { if (!firstAllowed) firstAllowed = { t: r.t, ...(r.agent ? { agent: r.agent } : {}), ...(d.node !== undefined ? { node: d.node } : {}) }; tick.allowed++; totals.allowed++; if (who) who.allowed++; continue; }
       const isErr = d.outcome === 'error';
       if (isErr) { tick.errors++; totals.errors++; if (who) who.errors++; } else { tick.refused++; totals.refused++; if (who) who.refused++; }
       bump(byReason, d.reason ?? d.error);
@@ -116,7 +117,7 @@ export function runLoad({ engine, config, profile }) {
     engine, config: normalized, profile: prof, start, series, totals,
     byReason: { ...byReason },
     ...(Object.keys(byAgent).length ? { byAgent: { ...byAgent } } : {}),
-    refusals, refusalsTruncated: totals.refused + totals.errors > refusals.length,
+    firstAllowed, refusals, refusalsTruncated: totals.refused + totals.errors > refusals.length,
     model: 'UNVERIFIED (lab model): units, parameters and the client refusal shape are this lab\'s own',
   };
 }

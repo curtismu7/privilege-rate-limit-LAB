@@ -1,0 +1,322 @@
+{
+  "schema": "demo-content-pack/1",
+  "id": "privilege-rate-limit-lab",
+  "title": "Privilege Rate Limit LAB",
+  "version": "0.2.0",
+  "demo": {
+    "id": "privilege-rate-limit-lab",
+    "name": "Privilege Rate Limit LAB",
+    "catalog": "D000",
+    "baseUrl": "http://localhost:7837",
+    "doctor": "/api/health",
+    "tags": [
+      "privilege",
+      "rate-limit",
+      "ai-gateway",
+      "simulated"
+    ]
+  },
+  "glossary": [
+    {
+      "id": "bucket",
+      "term": "Refilling bucket",
+      "definition": "The release notes say request-rate caps run on a continuously refilling bucket. In the lab's model it holds N tokens and refills R a second, one request costs one token, so a burst drains it and capacity returns gradually. The units are the lab's own and UNVERIFIED.",
+      "aliases": [
+        "token bucket"
+      ]
+    },
+    {
+      "id": "fixed-window",
+      "term": "Fixed window (the comparison)",
+      "definition": "A limiter that counts requests in a window and resets all at once at its edge. It is only the lab's contrast to the bucket; the release notes do not describe one.",
+      "aliases": []
+    },
+    {
+      "id": "inflight",
+      "term": "In-flight cap",
+      "definition": "The release notes say LLM calls have an in-flight cap. In the lab's model a slow call holds a slot until it ends, so the next call can be refused at a low request rate.",
+      "aliases": [
+        "max concurrent"
+      ]
+    },
+    {
+      "id": "shared-limit",
+      "term": "Shared limit through Redis",
+      "definition": "The release notes say limits can be shared across the gateway cluster through Redis. In the lab's model, without sharing each node allows the full limit; with a shared store (a Redis stand-in) the limit is counted once. Redis outage behaviour is UNVERIFIED and not claimed.",
+      "aliases": [
+        "cluster sharing"
+      ]
+    },
+    {
+      "id": "app-caps",
+      "term": "App-wide MCP and A2A caps",
+      "definition": "The release notes say MCP and A2A applications get their own app-wide RPM and max-concurrent caps. In the lab's model they are separate from each key's caps, so one agent can use up the app's cap for the others. The check order is UNVERIFIED.",
+      "aliases": [
+        "app-wide cap"
+      ]
+    },
+    {
+      "id": "refusal-shape",
+      "term": "What the client sees",
+      "definition": "The lab records a refusal as HTTP 429, a Retry-After in whole seconds and a small JSON body. That shape is the lab's model and UNVERIFIED; the release notes do not say what a refused caller receives.",
+      "aliases": [
+        "Retry-After"
+      ]
+    },
+    {
+      "id": "open-question",
+      "term": "Open question: refusal and fallback",
+      "definition": "Whether a rate-limit refusal can trigger model fallback is not known and the lab shows no opinion. It only records the refusal and never calls a fallback.",
+      "aliases": []
+    }
+  ],
+  "sources": [
+    {
+      "id": "release-notes",
+      "title": "Vendor release notes of 2026-11-21 (the only source; not linked here)",
+      "url": "https://github.com/curtismu7/privilege-rate-limit-LAB/blob/main/docs/spec.md",
+      "kind": "release-notes",
+      "use": "The four sourced features. The spec file in this lab's own public repository lists what they say and what is the lab's model.",
+      "status": "read",
+      "checked": "2026-11-24"
+    }
+  ],
+  "cards": [
+    {
+      "id": "try-burst-drains-and-refills",
+      "label": "Scenario 1: A burst, then recovery",
+      "description": "Month-end statement requests all arrive in the same second. The bucket holds 10 and refills 2 a second, so 15 at once gets 10 through and 5 refused. Then watch the line: capacity comes back second by second, and after 5 quiet seconds the next burst gets 10 again.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#limits/burst-drains-and-refills"
+      },
+      "terms": [
+        "bucket"
+      ],
+      "story": "S01"
+    },
+    {
+      "id": "try-bucket-vs-fixed-window",
+      "label": "Scenario 2: Bucket against a fixed window",
+      "description": "Same load, two limiters. A fixed window resets all at once at its edge, so a customer who times it gets 20 through in a second. The refilling bucket had one second to refill and lets 11 through. That is the point of a bucket, in the lab's model.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#limits/bucket-vs-fixed-window"
+      },
+      "terms": [
+        "bucket",
+        "fixed-window"
+      ],
+      "story": "S02"
+    },
+    {
+      "id": "try-inflight-refuses-at-low-rate",
+      "label": "Scenario 3: Slow calls hold slots",
+      "description": "A long fraud-review answer keeps the call open for seconds. With an in-flight cap of 2, a request a second is already too much: the third and fourth are refused although a bucket would serve every one. A slot comes back the instant a call ends.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#limits/inflight-refuses-at-low-rate"
+      },
+      "terms": [
+        "inflight"
+      ],
+      "story": "S03"
+    },
+    {
+      "id": "try-cluster-without-shared-limit",
+      "label": "Scenario 4: Two nodes, no sharing",
+      "description": "The gateway runs as two nodes. Without a shared limit each keeps its own bucket, so a limit of 10 quietly becomes 20: the client got double.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#limits/cluster-without-shared-limit"
+      },
+      "terms": [
+        "shared-limit"
+      ],
+      "story": "S04"
+    },
+    {
+      "id": "try-cluster-with-shared-limit",
+      "label": "Scenario 5: Two nodes, one shared limit",
+      "description": "The same nodes and the same burst, but the limit lives in a shared store (a Redis stand-in here). It is counted once: 10 in, 10 refused, whichever node took them.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#limits/cluster-with-shared-limit"
+      },
+      "terms": [
+        "shared-limit"
+      ],
+      "story": "S05"
+    },
+    {
+      "id": "try-app-cap-exhausted-by-one-agent",
+      "label": "Scenario 6: One agent uses up the app's cap",
+      "description": "Fabrikam ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#limits/app-cap-exhausted-by-one-agent"
+      },
+      "terms": [
+        "app-caps"
+      ],
+      "story": "S06"
+    },
+    {
+      "id": "try-refusal-recorded",
+      "label": "Scenario 7: What the client sees",
+      "description": "When a call is refused the lab records what the client would receive: a status, a retry hint and a body. That shape is the lab's own model, marked UNVERIFIED. It is not a statement about the product.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#limits/refusal-recorded"
+      },
+      "terms": [
+        "refusal-shape"
+      ],
+      "story": "S07"
+    },
+    {
+      "id": "page-limits",
+      "label": "Rate limits: the scenarios, the chart and your own run",
+      "description": "Seven scenario buttons, controls and a load generator (steady, burst, spike), a chart of allowed, refused and tokens over lab time, the bucket against a fixed window side by side, the two-node cluster view, the app-wide caps view and what the client sees on a refusal. The verdict comes first.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#limits"
+      },
+      "terms": [
+        "bucket",
+        "inflight",
+        "shared-limit",
+        "app-caps"
+      ]
+    },
+    {
+      "id": "page-diagram",
+      "label": "Diagram",
+      "description": "The rate-limit path, loaded by name from diagram-studio data: movable boxes, Simulate, speed and Reset.",
+      "group": "concept",
+      "action": {
+        "type": "route",
+        "href": "/#diagram"
+      },
+      "terms": [
+        "bucket",
+        "shared-limit"
+      ]
+    },
+    {
+      "id": "page-observability",
+      "label": "What this run left behind",
+      "description": "The log and audit rows of the latest run by layer, every one tagged simulated; a layer the lab never touched says not logged.",
+      "group": "concept",
+      "action": {
+        "type": "route",
+        "href": "/#observability"
+      },
+      "terms": [
+        "refusal-shape"
+      ]
+    },
+    {
+      "id": "page-stories",
+      "label": "Stories",
+      "description": "Seven beats with the words to say, in three industries.",
+      "group": "concept",
+      "action": {
+        "type": "route",
+        "href": "/#stories"
+      },
+      "terms": [
+        "bucket"
+      ]
+    },
+    {
+      "id": "page-unverified",
+      "label": "Limits and UNVERIFIED",
+      "description": "What the release notes say, what the lab only models, and the open question the lab does not answer.",
+      "group": "reference",
+      "action": {
+        "type": "route",
+        "href": "/#unverified"
+      },
+      "terms": [
+        "refusal-shape",
+        "open-question"
+      ]
+    },
+    {
+      "id": "concept-presenter",
+      "label": "Presenter mode and the talk track",
+      "description": "Press P for presenter mode (the simulation banner stays) and open the talk track.",
+      "group": "concept",
+      "action": {
+        "type": "route",
+        "href": "/#limits"
+      },
+      "terms": [
+        "bucket"
+      ]
+    },
+    {
+      "id": "ref-doctor",
+      "label": "Doctor and health",
+      "description": "Preflight checks (one per scenario) and the demo-health/1 endpoint.",
+      "group": "setup",
+      "action": {
+        "type": "route",
+        "href": "/api/health"
+      }
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "rate-limit-bucket",
+      "label": "Rate limits: a refilling bucket, in-flight cap and shared limit",
+      "href": "/#diagram"
+    }
+  ],
+  "stories": [
+    {
+      "id": "S01",
+      "title": "A burst, then recovery",
+      "say": "Month-end statement requests all arrive in the same second. The bucket holds 10 and refills 2 a second, so 15 at once gets 10 through and 5 refused. Then watch the line: capacity comes back second by second, and after 5 quiet seconds the next burst gets 10 again."
+    },
+    {
+      "id": "S02",
+      "title": "Bucket against a fixed window",
+      "say": "Same load, two limiters. A fixed window resets all at once at its edge, so a customer who times it gets 20 through in a second. The refilling bucket had one second to refill and lets 11 through. That is the point of a bucket, in the lab's model."
+    },
+    {
+      "id": "S03",
+      "title": "Slow calls hold slots",
+      "say": "A long fraud-review answer keeps the call open for seconds. With an in-flight cap of 2, a request a second is already too much: the third and fourth are refused although a bucket would serve every one. A slot comes back the instant a call ends."
+    },
+    {
+      "id": "S04",
+      "title": "Two nodes, no sharing",
+      "say": "The gateway runs as two nodes. Without a shared limit each keeps its own bucket, so a limit of 10 quietly becomes 20: the client got double."
+    },
+    {
+      "id": "S05",
+      "title": "Two nodes, one shared limit",
+      "say": "The same nodes and the same burst, but the limit lives in a shared store (a Redis stand-in here). It is counted once: 10 in, 10 refused, whichever node took them."
+    },
+    {
+      "id": "S06",
+      "title": "One agent uses up the app's cap",
+      "say": "Fabrikam ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer."
+    },
+    {
+      "id": "S07",
+      "title": "What the client sees",
+      "say": "When a call is refused the lab records what the client would receive: a status, a retry hint and a body. That shape is the lab's own model, marked UNVERIFIED. It is not a statement about the product."
+    }
+  ]
+}

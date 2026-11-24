@@ -7,3 +7,4 @@ secrets/*
 *.log
 .DS_Store
 .data/
+customer.config.json
