@@ -1,4 +1,4 @@
-import { clearWorkspaceUsed, markWorkspaceUsed, workspaceFetch } from "./workspace";
+import { clearWorkspaceUsed, markWorkspaceUsed, suspendWorkspaceClaim, workspaceFetch } from "./workspace";
 
 // Every call returns { ok, status, body } and never throws: a refusal (400, 409) is data with a plain message, and a body that is not JSON (a proxy's
 // 502 page) becomes { error, message } so the page always has a sentence to show (rule 23).
@@ -25,4 +25,11 @@ const ran = (r) => { if (r.ok) markWorkspaceUsed(); return r; };
 export const postScenario = (id) => call("POST", `/api/scenario/${encodeURIComponent(id)}`, {}).then(ran);
 // record: false is a look-aside run (the cluster compare): the server answers it but does not count it or keep it as the latest run.
 export const postRun = (engine, config, profile, { record = true } = {}) => call("POST", record ? "/api/run" : "/api/run?record=0", { engine, config, profile }).then((r) => (record ? ran(r) : r));
-export const postReset = () => call("POST", "/api/reset", {}).then((r) => { clearWorkspaceUsed(); return r; }); // the server dropped this workspace on purpose
+// Reset is the server dropping this workspace on purpose: the call is sent without the claim (so it is not answered "forgotten"), and the claim is only given up
+// once the reset really succeeded.
+export const postReset = async () => {
+  const restore = suspendWorkspaceClaim();
+  const r = await call("POST", "/api/reset", {});
+  if (r.ok) clearWorkspaceUsed(); else restore();
+  return r;
+};

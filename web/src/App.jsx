@@ -42,6 +42,7 @@ export default function App() {
   const lab = useLab({ onRestart: clearScenarioHash });
   const labRef = useRef(lab); labRef.current = lab;
   const [forgotten, setForgotten] = useState(false);
+  const [forgetCount, setForgetCount] = useState(0); // goes up when the server forgot the workspace: pages that show server state read it again. It is NOT the page epoch, so a result on screen (even the run that found out) stays
   const [page, setPage] = useState(pageFromHash());
   const [presenter, setPresenter] = useState(false);
   const [talkOpen, setTalkOpen] = useState(false);
@@ -53,7 +54,7 @@ export default function App() {
   useEffect(() => { applyFontSize(fontStep); try { localStorage.setItem(FONT_KEY, fontStep); } catch { /* not remembered */ } }, [fontStep]);
   useEffect(() => { const on = () => setPage(pageFromHash()); window.addEventListener("hashchange", on); return () => window.removeEventListener("hashchange", on); }, []);
   // The server no longer held this tab's workspace (evicted, or restarted): say so, and load the lab's state again.
-  useEffect(() => onWorkspaceForgotten(() => { setForgotten(true); labRef.current.reload(); }), []);
+  useEffect(() => onWorkspaceForgotten(() => { clearScenarioHash(); setForgotten(true); setForgetCount((n) => n + 1); labRef.current.reload(); }), []);
   useEffect(() => {
     // P toggles presenter mode, Escape leaves it. Not with Ctrl, Cmd or Alt (Cmd+P is the browser's print), not on a key repeat, and not while focus is in
     // a control or editable text (typing a "p" in a field, or Space and Enter on a button, must never flip the mode).
@@ -130,7 +131,7 @@ export default function App() {
               <p>Could not load the lab ({lab.error}). Is the server running?</p>
               <button type="button" onClick={lab.reload} data-testid="retry">Try again</button>
             </div>
-          ) : !story || !info ? <p className="muted" role="status">Loading...</p> : <View key={`${page}-${lab.epoch}`} lab={lab} />}
+          ) : !story || !info ? <p className="muted" role="status">Loading...</p> : <View key={`${page}-${lab.epoch}`} lab={lab} forgetCount={forgetCount} />}
         </div>
       </main>
       <TalkTrackDialog isOpen={talkOpen} onClose={() => setTalkOpen(false)} talk={talk} />

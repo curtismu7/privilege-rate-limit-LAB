@@ -6,14 +6,15 @@ import { visible } from "../safeText";
 
 // Rule 27: what the latest run in this workspace left behind. Every row is simulated (this lab's own engine computed it) and tagged so; a layer the lab never
 // touched says "not logged". The only real log the lab writes is one stdout line per decision, with no token in it.
-export default function ObservabilityPage() {
+export default function ObservabilityPage({ forgetCount = 0 }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const load = useCallback(async () => {
     const r = await getObservability();
     if (r.ok) { setData(r.body); setError(null); } else setError(r.body?.message || `HTTP ${r.status}`);
   }, []);
-  useEffect(() => { load(); }, [load]);
+  // The server forgot this workspace: what was shown is stale, so it is dropped and read again (the server now holds no run).
+  useEffect(() => { setData(null); load(); }, [load, forgetCount]);
   return (
     <div className="stack">
       <Card kicker="What this run left behind" title="The log and audit rows of the latest run, by layer" testId="obs-intro">

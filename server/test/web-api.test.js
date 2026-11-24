@@ -287,3 +287,24 @@ test('a forgotten workspace is signalled: a tab that says it already used an id 
     try { const rr = await fetch(`${s2.url}api/info`, { headers: { 'x-workspace': 'tab-a', 'x-workspace-used': '1' } }); assert.equal(rr.headers.get('x-workspace-fresh'), '1'); } finally { await new Promise((x) => s2.server.close(x)); }
   } finally { await new Promise((r) => s.server.close(r)); }
 });
+
+test('a request that will be refused (404, 400) is validated BEFORE any workspace is created or evicted', async () => {
+  const { createWorkspaces } = await import('../src/workspaces.js');
+  const ws = createWorkspaces({ max: 2 });
+  const app = createApp({ env: { WEB_DIST: '/nonexistent' }, log: () => {}, workspaces: ws });
+  const s = await startHttpServer({ port: 0, host: '127.0.0.1', app });
+  try {
+    const b = s.url.replace(/\/$/, '');
+    const send = (p, ws2, body) => fetch(`${b}${p}`, { method: 'POST', headers: { ...J, origin: b, 'x-workspace': ws2 }, body: JSON.stringify(body ?? {}) });
+    await send('/api/scenario/refusal-recorded', 'keep-a'); await send('/api/scenario/refusal-recorded', 'keep-b');
+    assert.equal(ws.size(), 2);
+    assert.equal((await send('/api/scenario/nope', 'new-c')).status, 404);
+    assert.equal((await send('/api/run', 'new-d', { engine: 'bucket', config: { capacity: 0, refillPerSec: 1 }, profile: { phases: [{ type: 'idle', durationMs: 5 }] } })).status, 400);
+    assert.equal((await send('/api/run', 'new-e', { engine: 'bucket', extra: 1 })).status, 400);
+    assert.equal((await send('/api/mode', 'new-f', { source: 'real' })).status, 409);
+    assert.equal((await send('/api/scenario/__proto__', 'new-g')).status, 404);
+    assert.equal(ws.size(), 2, 'nothing was created');
+    assert.equal(ws.has('keep-a') && ws.has('keep-b'), true, 'and nothing was evicted');
+    for (const id of ['new-c', 'new-d', 'new-e', 'new-f', 'new-g']) assert.equal(ws.has(id), false, id);
+  } finally { await new Promise((r) => s.server.close(r)); }
+});

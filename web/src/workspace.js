@@ -35,9 +35,20 @@ export function workspaceId({ renew = false } = {}) {
 
 // The id this tab has already RUN something under. It is sent as X-Workspace-Used so the server can tell "a new tab" from "a tab whose workspace I no longer
 // hold" (evicted, or the server restarted): only the second is told X-Workspace-Fresh, and the page then says so instead of silently showing defaults.
+// The claim only exists after an earlier run answered successfully, so a brand-new tab (parallel info and story calls) never claims and is never told. `gen`
+// counts every change of the claim: a response is believed only if its request was sent under the claim that is still current, so the ORDER in which answers
+// arrive (a slow one from before a Reset, say) cannot fire the banner.
 let usedId = null;
-export const markWorkspaceUsed = () => { usedId = workspaceId(); };
-export const clearWorkspaceUsed = () => { usedId = null; };
+let gen = 0;
+export const markWorkspaceUsed = () => { usedId = workspaceId(); gen += 1; };
+export const clearWorkspaceUsed = () => { usedId = null; gen += 1; };
+// Reset: the server drops this workspace ON PURPOSE, so the reset call itself must not claim it (it would be answered "fresh" and bring the banner straight
+// back). The claim is put back if the reset did not succeed (the server still holds the workspace).
+export function suspendWorkspaceClaim() {
+  const saved = usedId;
+  clearWorkspaceUsed();
+  return () => { if (usedId === null && saved !== null) { usedId = saved; gen += 1; } };
+}
 let onForgotten = null;
 export function onWorkspaceForgotten(fn) { onForgotten = fn; return () => { if (onForgotten === fn) onForgotten = null; }; }
 
@@ -46,20 +57,19 @@ export function onWorkspaceForgotten(fn) { onForgotten = fn; return () => { if (
 // refused for the same id mint ONE new id between them: a call renews only if the id is still the one it sent.
 export async function workspaceFetch(url, opts = {}) {
   const send = () => {
-    const id = workspaceId();
-    return fetch(url, { ...opts, headers: { "content-type": "application/json", ...(opts.headers || {}), "x-workspace": id, ...(usedId === id ? { "x-workspace-used": "1" } : {}) } }).then((r) => ({ r, id }));
+    const id = workspaceId(); const sentGen = gen; const claimed = usedId === id;
+    return fetch(url, { ...opts, headers: { "content-type": "application/json", ...(opts.headers || {}), "x-workspace": id, ...(claimed ? { "x-workspace-used": "1" } : {}) } }).then((r) => ({ r, id, sentGen, claimed }));
   };
-  const seen = (r, id) => {
-    if (r.headers?.get?.("x-workspace-fresh") === "1" && usedId === id) { usedId = null; try { onForgotten?.(); } catch { /* the banner is best effort */ } }
+  // Every answer goes through here, whatever its status (a 400 for a bad config can carry the header too).
+  const seen = ({ r, id, sentGen, claimed }) => {
+    if (claimed && r.headers?.get?.("x-workspace-fresh") === "1" && sentGen === gen && usedId === id) { clearWorkspaceUsed(); try { onForgotten?.(); } catch { /* the banner is best effort */ } }
     return r;
   };
   const first = await send();
-  const r = first.r;
-  if (r.status !== 400) return seen(r, first.id);
+  if (first.r.status !== 400) return seen(first);
   let refused = false;
-  try { refused = (await r.clone().json())?.error === "bad_workspace"; } catch { /* not JSON */ }
-  if (!refused) return r;
+  try { refused = (await first.r.clone().json())?.error === "bad_workspace"; } catch { /* not JSON */ }
+  if (!refused) return seen(first);
   if (workspaceId() === first.id) workspaceId({ renew: true });
-  const second = await send();
-  return seen(second.r, second.id);
+  return seen(await send());
 }
