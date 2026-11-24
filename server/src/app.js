@@ -1,4 +1,4 @@
-// The Express API. Everything under /api/. No static files yet (the web UI is a later step).
+// The Express API. Everything under /api/, plus the built web page (web/dist) when it exists; the API and its tests need no build.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,13 +13,21 @@ import { createHealth } from './health.js';
 import { runLoad } from './load.js';
 import { jsonWritesOnly, makeHostCheck, sameOriginWrites } from './safety.js';
 import { SCENARIOS, describeScenarios, findScenario, runScenario } from './scenarios.js';
-import { createRunLog } from './state.js';
+import { buildDiagram, DIAGRAM_NAMES, hasDiagram } from './diagramData.js';
+import { loadCast, verticalFrom } from './cast.js';
+import { buildLimits, buildStory } from './story.js';
+import { tracesForRuns } from './labTrace.js';
+import { buildRunRecord, decisionLine, eventsForRun, STREAMS } from './runObs.js';
+import { createWorkspaces, workspaceFrom } from './workspaces.js';
 import { CLIENT_VIEW_NOTE } from './clientView.js';
 
 const { version } = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf8'));
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const NOT_REAL = 'Real mode is not built yet. It needs a tenant running the 2026-11-21 release and an owner-run, read-only read; until then this lab is Mock only.';
 
-export function createApp({ env = process.env, runChecks = () => defaultChecks(env), runLog = createRunLog() } = {}) {
+export function createApp({ env = process.env, runChecks = () => defaultChecks(env), log = (line) => console.log(line), workspaces = createWorkspaces() } = {}) {
+  const webDist = env.WEB_DIST || path.resolve(HERE, '../../web/dist');
+  const configFile = env.CUSTOMER_CONFIG || path.resolve(HERE, '../../customer.config.json');
   const app = express();
   app.disable('x-powered-by');
   app.use(makeHostCheck(env));
@@ -30,12 +38,26 @@ export function createApp({ env = process.env, runChecks = () => defaultChecks(e
   const health = createHealth({ demoId: 'privilege-rate-limit-lab', demoName: 'Privilege Rate Limit LAB', version, runChecks, allPassed, mockOnly: () => true });
   app.use('/api/health', health.router);
 
-  app.get('/api/info', (_req, res) => {
+  // Rule 13: every API call belongs to a workspace (X-Workspace, default "default"); an id that looks like a credential is refused, never echoed.
+  app.use('/api', (req, res, next) => {
+    const id = workspaceFrom(req);
+    if (id === null) return res.status(400).json({ error: 'bad_workspace', message: 'X-Workspace must be 1 to 40 lowercase letters, digits or hyphens and must not look like a credential' });
+    req.workspace = id;
+    // The tab says it already used this id (X-Workspace-Used: 1, sent after its first run). If the server holds no state for it, the workspace was evicted or the
+    // server restarted: say so on every answer until the tab acknowledges it, so the page can tell the visitor instead of silently showing defaults.
+    req.workspaceForgotten = req.headers['x-workspace-used'] === '1' && !workspaces.has(id);
+    if (req.workspaceForgotten) res.set('X-Workspace-Fresh', '1');
+    return next();
+  });
+  const stateOf = (req) => workspaces.get(req.workspace); // creates: only for requests that write state
+  const peekOf = (req) => workspaces.peek(req.workspace);   // a read never creates state
+
+  app.get('/api/info', (req, res) => {
     res.json({
       app: 'privilege-rate-limit-lab', version, tier: 'Demo',
       source: 'mock', mode: 'mock', realAvailable: false, realReason: NOT_REAL,
       banner: BANNER, openQuestion: OPEN_QUESTION, clientViewNote: CLIENT_VIEW_NOTE,
-      engines: ENGINE_NAMES, bounds: BOUNDS, scenarios: SCENARIOS.map((s) => s.id), runsSinceReset: runLog.count(),
+      engines: ENGINE_NAMES, bounds: BOUNDS, scenarios: SCENARIOS.map((s) => s.id), runsSinceReset: peekOf(req)?.runs.count() ?? 0, workspace: req.workspace, fresh: req.workspaceForgotten,
     });
   });
 
@@ -52,11 +74,37 @@ export function createApp({ env = process.env, runChecks = () => defaultChecks(e
 
   app.get('/api/scenarios', (_req, res) => res.json({ banner: BANNER, scenarios: describeScenarios() }));
 
+  // The story (beats, talk track, cast) for a vertical; the vertical falls back to the default like every other route.
+  app.get('/api/story', (req, res) => {
+    const vertical = verticalFrom(req.query.vertical);
+    res.set('Cache-Control', 'no-store').json(buildStory(loadCast(configFile, vertical), vertical));
+  });
+
+  app.get('/api/limits', (_req, res) => res.set('Cache-Control', 'no-store').json(buildLimits()));
+
+  app.get('/api/diagram', (req, res) => {
+    const name = req.query.name;
+    if (!hasDiagram(name)) return res.status(404).json({ error: 'unknown_diagram', message: `no such diagram; the lab has: ${DIAGRAM_NAMES.join(', ')}` });
+    const vertical = verticalFrom(req.query.vertical);
+    return res.set('Cache-Control', 'no-store').json({ ...buildDiagram(loadCast(configFile, vertical), name), vertical });
+  });
+
+  // Remember a run for "What this run left behind" and write one stdout line per decision (actor and outcome, no token).
+  const remember = (req, kind, id, runs) => {
+    const w = stateOf(req);
+    w.seq += 1;
+    const runId = `r${w.seq}`;
+    const { events, total } = eventsForRun(runId, runs);
+    w.last = { runId, kind, id, events, total };
+    for (const e of events) log(decisionLine(e));
+  };
+
   app.post('/api/scenario/:id', (req, res) => {
     if (!findScenario(req.params.id)) return res.status(404).json({ error: 'unknown_scenario', message: 'no such scenario' });
     const out = runScenario(req.params.id);
-    runLog.add({ kind: 'scenario', id: out.id, ok: out.ok });
-    res.json(out);
+    stateOf(req).runs.add({ kind: 'scenario', id: out.id, ok: out.ok });
+    remember(req, 'scenario', out.id, out.runs);
+    res.json({ ...out, traces: tracesForRuns(out.runs) });
   });
 
   app.post('/api/run', (req, res) => {
@@ -66,13 +114,34 @@ export function createApp({ env = process.env, runChecks = () => defaultChecks(e
       return res.status(400).json({ error: 'invalid_request', message: 'send { engine, config, profile }' });
     }
     const out = runLoad({ engine: b.engine, config: b.config, profile: b.profile });
-    runLog.add({ kind: 'run', engine: out.engine });
-    res.json(out);
+    // ?record=0 is a look-aside run (the cluster compare): it answers, but it is not "the latest run" and is not counted.
+    if (req.query.record !== '0') {
+      stateOf(req).runs.add({ kind: 'run', engine: out.engine });
+      remember(req, 'run', out.engine, { run: out });
+    }
+    res.json({ ...out, traces: tracesForRuns({ run: out }).run });
   });
 
-  app.post('/api/reset', (_req, res) => res.json({ reset: 'ok', cleared: runLog.reset() }));
+  // What the latest run in this workspace left behind (rule 27): the panel's record, or null before any run.
+  app.get('/api/observability', async (req, res, next) => {
+    try {
+      const last = peekOf(req)?.last ?? null;
+      const record = last ? await buildRunRecord({ runId: last.runId, events: last.events }) : null;
+      // A run can make no decision at all (an idle profile): that is not "nothing has run". A run with more decisions than the cap says how many were cut.
+      res.set('Cache-Control', 'no-store').json({
+        record, run: last ? { runId: last.runId, kind: last.kind, id: last.id, decisions: last.total, shown: last.events.length, truncated: last.total > last.events.length } : null, streams: STREAMS,
+      });
+    } catch (e) { next(e); }
+  });
+
+  app.post('/api/reset', (req, res) => res.json({ reset: 'ok', cleared: workspaces.reset(req.workspace) }));
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found', message: 'no such endpoint' }));
+
+  // The built page, when there is one. The API never needs it: tests and doctor run without a build.
+  if (fs.existsSync(path.join(webDist, 'index.html'))) {
+    app.use(express.static(webDist, { redirect: false, index: 'index.html', dotfiles: 'ignore', fallthrough: true }));
+  }
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, _req, res, _next) => {
@@ -83,6 +152,7 @@ export function createApp({ env = process.env, runChecks = () => defaultChecks(e
   });
 
   app.locals.health = health;
+  app.locals.workspaces = workspaces;
   return app;
 }
 

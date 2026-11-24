@@ -81,3 +81,25 @@ export function jsonWritesOnly(req, res, next) {
   }
   return next();
 }
+
+// ---- Shipped-text scans (used by tests on stories, diagrams and traces) -------------------------------------------------------------------------
+const reservedHost = (h) => /(^|\.)(invalid|example)$/.test(String(h).toLowerCase());
+const NETWORK_URL = /\b(?:https?|wss?|ftp|sftp|ssh|smtp|tcp|udp):\/\/([^\s/?#"'<>\\]+)/gi;
+const EMAIL = /[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/g;
+const IPV4 = /\b\d{1,3}(?:\.\d{1,3}){3}\b/g;
+const stripAuthority = (a) => a.replace(/^[^@]*@/, '').replace(/:\d+$/, '');
+
+// Every hostname or IP in text that is not reserved (.example, .invalid) or loopback. Empty = clean.
+export function scanHosts(text) {
+  const found = new Set();
+  const s = String(text);
+  for (const m of s.matchAll(NETWORK_URL)) found.add(stripAuthority(m[1]).toLowerCase());
+  for (const m of s.matchAll(EMAIL)) found.add(m[1].toLowerCase());
+  for (const m of s.matchAll(IPV4)) found.add(m[0]);
+  return [...found].filter((h) => !reservedHost(h) && !isLoopbackHost(h)).sort();
+}
+
+// Any "sk-" secret that is not an obviously fake sk-MOCK- value. Empty = clean.
+export function scanKeys(text) {
+  return [...String(text).matchAll(/\bsk-(?!MOCK-)[A-Za-z0-9_-]{8,}/g)].map((m) => `${m[0].slice(0, 8)}...`);
+}

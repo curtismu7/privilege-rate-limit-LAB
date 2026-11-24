@@ -1,0 +1,26 @@
+{
+  "demos": [
+    {
+      "id": "privilege-rate-limit-lab",
+      "addedAt": "2026-11-24",
+      "name": "Privilege Rate Limit LAB",
+      "kind": "Demo",
+      "description": "A refilling bucket, an in-flight cap, a limit shared across a gateway cluster and the app-wide MCP and A2A caps, on a lab clock: seven scenarios with a chart and a verdict. Simulated; only four features are sourced from the release notes, the rest is UNVERIFIED.",
+      "url": "http://localhost:7837",
+      "healthPath": "/api/health",
+      "composeFile": "privilege-rate-limit-LAB/docker-compose.yml",
+      "composeOverlays": [],
+      "pingProducts": [],
+      "notes": "Port 7837 and catalog id D000 are PROVISIONAL placeholders: the owner assigns the real ones at the shelf registry step. Host-run: npm start (port 7837). Docker: docker compose up --build -d (published on 127.0.0.1 only). Mock only; makes zero outbound calls.",
+      "repo": "https://github.com/curtismu7/privilege-rate-limit-LAB",
+      "catalogId": "D000",
+      "alsoCatalogIds": [],
+      "tags": [
+        "pingone-privilege",
+        "simulated",
+        "learning"
+      ],
+      "where": "installed"
+    }
+  ]
+}

@@ -21,7 +21,7 @@ report(self.ok ? 'pass' : 'fail', 'netguard-self-test', self.ok ? `${self.blocke
 try {
   const { createApp, startHttpServer } = await load('server/src/app.js');
   const { SCENARIOS } = await load('server/src/scenarios.js');
-  const app = createApp();
+  const app = createApp({ log: () => {} }); // the doctor prints only pass and fail lines
   const { server, url } = await startHttpServer({ port: 0, host: '127.0.0.1', app });
   try {
     const base = url.replace(/\/$/, '');

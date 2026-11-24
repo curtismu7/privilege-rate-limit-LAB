@@ -7,7 +7,7 @@ import { REPO_ROOT } from '../src/pin.js';
 
 const walk = (dir, out = []) => {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name === '.git') continue;
+    if (e.name === 'node_modules' || e.name === '.git' || e.name === 'dist') continue; // dist is the generated web build, not shipped text
     const p = path.join(dir, e.name);
     if (e.isDirectory()) walk(p, out); else out.push(p);
   }
@@ -19,10 +19,13 @@ test('shipped text names only reserved hosts (.example, .invalid, loopback)', ()
   const ok = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|.*\.(example|invalid)|local\.ping-devops\.com)$/i;
   const bad = [];
   // CI workflow files name the CI tool's download host; they are not shipped lab text.
-  for (const f of files().filter((x) => !x.includes(`${path.sep}.github${path.sep}`))) {
+  // Also exempt: vendored shared files (pinned byte for byte, they name their own origin), the CI download script and the JSON schema's own id.
+  const VENDORED = ['/web/src/diagram-kit/', '/web/src/floating-dialog/', '/web/src/gateway-trace/', '/web/src/run-observability/', '/web/src/top-menu/', '/web/src/components/JsonPane', '/web/src/styles/', '/scripts/check-ui-standard.sh', '/docs/content-pack.schema.json', '/scripts/run-observability-checkPin.mjs'];
+  for (const f of files().filter((x) => !x.includes(`${path.sep}.github${path.sep}`) && !VENDORED.some((v) => x.includes(v)))) {
     const text = fs.readFileSync(f, 'utf8');
-    for (const m of text.matchAll(/\bhttps?:\/\/([^\s/?#"'`<>\\)]+)/gi)) {
+    for (const m of text.matchAll(/\bhttps?:\/\/([^\s/?#"'`<>\\)]+)(\/[^\s"'`<>\\)]*)?/gi)) {
       const host = m[1].replace(/:\d+$/, '').replace(/^[^@]*@/, '');
+      if (host.toLowerCase() === 'github.com' && /^\/curtismu7\/privilege-rate-limit-LAB(\/|#|$)/i.test(m[2] || '')) continue; // this lab's own public repo
       if (!ok.test(host) && !/[${}]/.test(host)) bad.push(`${path.relative(REPO_ROOT, f)}: ${host}`);
     }
   }
@@ -36,19 +39,19 @@ test('no AI attribution in any file', () => {
 });
 
 test('the server never calls the network or a timer for lab time', () => {
-  const src = walk(path.join(REPO_ROOT, 'server/src')).filter((f) => f.endsWith('.js') && !f.includes('model-gateway-sim') && !f.endsWith('netguard.js') && !f.endsWith('health.js'));
+  const src = walk(path.join(REPO_ROOT, 'server/src')).filter((f) => f.endsWith('.js') && !f.includes('model-gateway-sim') && !f.endsWith('netguard.js') && !f.endsWith('health.js') && !f.endsWith('runObservability.js') && !f.endsWith('gatewayTrace.js')); // the last two are vendored shared files, pinned byte for byte
   for (const f of src) {
     const t = fs.readFileSync(f, 'utf8');
     assert.equal(/setTimeout|setInterval|Date\.now|new Date\(|Math\.random|\beval\(|new Function|node:vm/.test(t), false, path.relative(REPO_ROOT, f));
   }
 });
 
-test('the only dependency is express, and the package says Node 26', () => {
+test('the only server dependency is express, and the package says Node 26', () => {
   const root = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
   const server = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'server/package.json'), 'utf8'));
   assert.deepEqual(Object.keys(server.dependencies), ['express']);
   assert.equal(root.engines.node, '>=26');
-  assert.deepEqual(root.workspaces, ['server']);
+  assert.deepEqual(root.workspaces, ['server', 'web']);
   assert.equal(/node --test test\/\*\.test\.js$/.test(server.scripts.test), true, 'a glob, never a directory');
 });
 

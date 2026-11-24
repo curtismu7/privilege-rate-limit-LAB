@@ -1,21 +1,28 @@
 {
   "name": "privilege-rate-limit-lab",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Privilege Rate Limit LAB: a refilling token bucket, an in-flight cap for LLM calls, cluster sharing through a Redis stand-in and app-wide MCP and A2A caps, all on a lab clock. Mock only; the model is the lab's own and everything beyond the 2026-11-21 release notes is UNVERIFIED.",
   "license": "MIT",
   "workspaces": [
-    "server"
+    "server",
+    "web"
   ],
   "engines": {
     "node": ">=26"
   },
   "scripts": {
     "start": "npm start -w server",
-    "test": "npm test -w server",
+    "build": "npm run build -w web",
+    "test": "npm test -w server && npm test -w web && node --test scripts/*.test.mjs",
     "doctor": "node scripts/doctor.mjs",
     "reset": "node scripts/reset.mjs",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "talk-track": "node scripts/build-talk-track.mjs",
+    "content-pack": "node scripts/build-content-pack.mjs && node scripts/validate-content-pack.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0"
   }
 }

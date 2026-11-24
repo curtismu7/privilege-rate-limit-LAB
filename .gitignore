@@ -7,3 +7,6 @@ secrets/*
 *.log
 .DS_Store
 .data/
+customer.config.json
+config/*
+!config/.gitkeep
