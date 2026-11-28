@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import TopMenu, { applyFontSize } from "./top-menu/TopMenu.jsx";
 import TalkTrackDialog from "./talk-track/TalkTrackDialog.jsx";
 import AboutDialog from "./about/AboutDialog.jsx";
+import ModeModal from "./mode-modal/ModeModal.jsx";
 import ModeToggle from "./components/ModeToggle.jsx";
 import PresenterSay from "./components/PresenterSay.jsx";
 import useLab from "./hooks/useLab";
@@ -21,8 +22,11 @@ export const PAGES = [
   { id: "stories", label: "Stories", View: StoriesPage },
   { id: "unverified", label: "Limits and UNVERIFIED", View: UnverifiedPage },
 ];
-// The banner never waits for the server to be known as simulated: until /api/info answers, it already says so.
-export const BANNER_UNKNOWN = "SIMULATED. Rate limits run on a lab clock in this app: no gateway, no Redis, no provider, no real traffic.";
+// The Real-or-mock modal's lines (it replaces the old simulation banner). The server still sends its own `banner` in /api/info and /api/scenarios (server tests pin it); the page no longer reads it.
+export const MODE_LINES = {
+  mock: "Everything here is simulated: rate limits run on a lab clock in this app, with no gateway, no Redis, no LLM provider, no real traffic and no network call. Only what the 2026-11-21 release notes say is sourced; everything else (units, what a client receives, Redis outage behaviour) is this lab's own model and UNVERIFIED.",
+  real: "Real is one read-only look at a tenant running the 2026-11-21 release, owner-run, and it is not built yet. Everything else on this page stays this lab's own model and UNVERIFIED.",
+};
 const PAGE_INTRO = {
   limits: "A refilling bucket, an in-flight cap, a shared limit and the app-wide caps, on a lab clock. Pick a scenario or build a run; the verdict comes first.",
   diagram: "The rate-limit path as a diagram loaded by name from diagram-studio data. Drag a box, press Simulate, then Reset.",
@@ -79,7 +83,6 @@ export default function App() {
   };
 
   const { source, story, info } = lab;
-  const banner = info?.banner || BANNER_UNKNOWN;
   const View = PAGES.find((p) => p.id === page).View;
   // The shared dialog renders what it is given as it is, so the strings go through visible() here (control and bidi characters as escapes).
   const talk = useMemo(() => (story?.talkTrack ?? []).map((t) => ({ ...t, title: visible(t.title), say: visible(t.say) })), [story]);
@@ -110,7 +113,6 @@ export default function App() {
         />
       </header>
       <main className="page">
-        <p className="banner" role="note" data-state="mock" data-testid="banner">{banner}</p>
         {info && info.realAvailable === false && <p className="muted" data-testid="real-reason">Real is off: {info.realReason}</p>}
         {lab.modeError && <p className="field-error" role="alert" data-testid="mode-error-banner">{lab.modeError}</p>}
         {lab.error && story && (
@@ -137,6 +139,7 @@ export default function App() {
           ) : !story || !info ? <p className="muted" role="status">Loading...</p> : <View key={`${page}-${lab.epoch}`} lab={lab} forgetCount={forgetCount} />}
         </div>
       </main>
+      <ModeModal mode={source} lines={MODE_LINES} storageKey="prl-mode" />
       <AboutDialog isOpen={aboutOpen} onClose={() => setAboutOpen(false)} info={info} version={info?.version ? `v${info.version}` : ""} />
       <TalkTrackDialog isOpen={talkOpen} onClose={() => setTalkOpen(false)} talk={talk} />
     </div>

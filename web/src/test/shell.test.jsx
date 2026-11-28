@@ -1,28 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { PAGES } from "../App.jsx";
+import { MODE_LINES, PAGES } from "../App.jsx";
 import { jsonResponse } from "./harness.js";
 import { nav, screen, useLabHarness, userEvent, waitFor, within } from "./util.jsx";
 
 const h = useLabHarness();
 
-describe("the shell: banner, Mock/Real, presenter, talk track, Reset, themes", () => {
-  it("the simulation banner is first on every page and says what is simulated and what is UNVERIFIED", async () => {
-    const user = await h.mount({ page: "limits" });
+describe("the shell: mode modal, Mock/Real, presenter, talk track, Reset, themes", () => {
+  it("opens on the MOCK modal that says what is simulated and what is UNVERIFIED, and no simulation banner is left on any page", async () => {
+    const user = await h.mount({ page: "limits", modal: true });
+    const modal = screen.getByTestId("mode-modal");
+    expect(modal).toHaveAttribute("data-mode", "mock");
+    expect(modal.textContent).toContain(MODE_LINES.mock);
+    expect(modal).toHaveTextContent(/simulated/); expect(modal).toHaveTextContent(/UNVERIFIED/); expect(modal).toHaveTextContent(/2026-11-21 release notes/);
+    await user.click(screen.getByTestId("mode-modal-ok"));
     for (const p of PAGES) {
       await nav(user, p.label);
-      const banner = await screen.findByTestId("banner");
-      expect(banner).toHaveTextContent(/SIMULATED/); expect(banner).toHaveTextContent(/UNVERIFIED/); expect(banner).toHaveTextContent(/2026-11-21 release notes/);
-      const main = document.querySelector("main.page");
-      expect(main.firstElementChild).toBe(banner); // before everything else on the page
+      expect(screen.queryByTestId("banner")).toBeNull();
+      expect(document.querySelector("main.page > p.banner")).toBeNull();
+      expect(screen.queryByTestId("mode-modal")).toBeNull();
     }
   });
 
-  it("the banner is there even before the server answers, and when it cannot", async () => {
+  it("the modal is there even before the server answers, and when it cannot (an unreachable server reads MOCK)", async () => {
     h.lab = await (await import("./harness.js")).startLab({ overrides: { "/api/info": () => jsonResponse(500, { error: "internal_error", message: "boom" }) } });
     const { render } = await import("@testing-library/react");
     const App = (await import("../App.jsx")).default;
     render(<App />);
-    expect(await screen.findByTestId("banner")).toHaveTextContent(/SIMULATED/);
+    expect(await screen.findByTestId("mode-modal")).toHaveAttribute("data-mode", "mock");
     expect(await screen.findByTestId("load-error")).toHaveTextContent(/Could not load the lab/);
     expect(screen.getByTestId("retry")).toBeInTheDocument();
   });
@@ -59,12 +63,11 @@ describe("the shell: banner, Mock/Real, presenter, talk track, Reset, themes", (
     expect(screen.getByTestId("mode")).toHaveTextContent("Mock");
   });
 
-  it("presenter mode (P) keeps the banner, shows the talk-track lines for the page, and Escape leaves it", async () => {
+  it("presenter mode (P) shows the talk-track lines for the page, and Escape leaves it", async () => {
     const user = await h.mount({ page: "limits" });
     await user.keyboard("p");
     const say = await screen.findByTestId("presenter-say");
     expect(say).toHaveTextContent("Opening");
-    expect(screen.getByTestId("banner")).toBeInTheDocument();
     expect(document.querySelector(".app--presenter")).not.toBeNull();
     await nav(user, "Limits and UNVERIFIED");
     expect(screen.getByTestId("presenter-say")).toHaveTextContent("The open question");
