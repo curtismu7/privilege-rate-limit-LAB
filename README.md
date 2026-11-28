@@ -29,7 +29,7 @@ Five pages, the simulation banner first on every one, a Mock / Real toggle in th
 - **Rate limits**: seven scenario buttons, controls (capacity, refill, in-flight cap, node count, shared store, app-wide caps) and a load generator (steady, burst, spike), the verdict first, then a chart of allowed, refused, errors, tokens and in-flight calls over lab time; the bucket against a fixed window side by side; the two-node cluster view with and without sharing; the app-wide caps view; what the client sees on a refusal (the lab's model, UNVERIFIED); and the simulated gateway trace (shared `GatewayTrace`).
 - **Diagram**: `rate-limit-bucket`, loaded by name from diagram-studio data (`server/diagrams/`, exported from diagram-studio-LAB branch `feat/model-gateway-diagrams`, PR #35; re-export after it merges). Movable boxes, Simulate, speed, Reset restores the positions.
 - **Left behind** (rule 27): the latest run's rows by layer through the shared `RunObservability`, every row `simulated`; a layer the lab never touched says `not logged`.
-- **Stories**: seven beats as data with `{{cast}}` tokens and three vertical packs (finance, health, retail).
+- **Stories**: seven beats as data with `{{cast}}` tokens and four vertical packs (airlines, finance, health, retail). The default is the fictional AirGuard Airlines (`airlines`); `customer.config.example.json` shows the brand override.
 - **Limits and UNVERIFIED**: what the release notes say against what the lab models, and an open-question card (no result) for "can a rate-limit refusal trigger model fallback?".
 
 ## Observability (rule 27)

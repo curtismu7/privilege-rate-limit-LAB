@@ -16,7 +16,7 @@ const TERMS = {
 };
 
 export function buildPack() {
-  const story = buildStory(DEFAULT_CAST, 'finance');
+  const story = buildStory(DEFAULT_CAST, 'airlines');
   const sid = (n) => `S${String(n).padStart(2, '0')}`;
   return {
     schema: 'demo-content-pack/1',

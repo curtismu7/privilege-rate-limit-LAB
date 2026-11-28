@@ -41,8 +41,8 @@ test('GET /api/story: filled for each vertical, falls back to the default, and c
     assert.ok(!text.includes('{{')); assert.deepEqual(unfilled(text, VERTICALS[v]), []);
     assert.deepEqual(scanHosts(text), []); assert.deepEqual(scanKeys(text), []);
   }
-  assert.equal((await (await get('/api/story?vertical=zzz')).json()).vertical, 'finance');
-  assert.equal((await (await get('/api/story?vertical=__proto__')).json()).vertical, 'finance');
+  assert.equal((await (await get('/api/story?vertical=zzz')).json()).vertical, 'airlines');
+  assert.equal((await (await get('/api/story?vertical=__proto__')).json()).vertical, 'airlines');
 });
 
 test('GET /api/limits: the open question has no result, and the page data says nothing about fallback', async () => {
@@ -68,7 +68,7 @@ test('GET /api/diagram: rate-limit-bucket by name (diagram-studio/1 data), one s
   for (const s of d.steps) { assert.ok(ids.has(s.from) && ids.has(s.to)); assert.ok(s.label && s.say); assert.ok(!/^\d/.test(s.label), 'the page numbers the arrows, so the studio number is dropped'); }
   assert.equal((await get('/api/diagram?name=nope')).status, 404);
   assert.equal((await get('/api/diagram')).status, 404);
-  assert.equal(buildDiagram(VERTICALS.finance, 'rate-limit-bucket').title, doc.title);
+  assert.equal(buildDiagram(VERTICALS.airlines, 'rate-limit-bucket').title, doc.title);
 });
 
 test('the diagram data is the studio export it says it is (pinned by hash, so a hand edit fails)', () => {
@@ -307,4 +307,14 @@ test('a request that will be refused (404, 400) is validated BEFORE any workspac
     assert.equal(ws.has('keep-a') && ws.has('keep-b'), true, 'and nothing was evicted');
     for (const id of ['new-c', 'new-d', 'new-e', 'new-f', 'new-g']) assert.equal(ws.has(id), false, id);
   } finally { await new Promise((r) => s.server.close(r)); }
+});
+
+test('the default airline run: every scenario run, the story and the diagram carry no old brand (retired names, rendered text)', async () => {
+  const RETIRED = ['Fabrikam', 'Contoso', 'Northwind', 'Meridian Air', 'Statement export', 'Fraud review', 'Branch hours', 'ledger'];
+  const ws = 'airline-sweep';
+  const parts = [await (await get('/api/story')).text(), await (await get('/api/diagram?name=rate-limit-bucket')).text()];
+  for (const sc of SCENARIOS) parts.push(await (await post(`/api/scenario/${sc.id}`, {}, ws)).text());
+  const text = parts.join('\n');
+  assert.ok(text.includes('AirGuard Airlines'));
+  for (const name of RETIRED) assert.ok(!text.includes(name), `retired name in the airline run: ${name}`);
 });

@@ -1,5 +1,5 @@
-// {{token}} templating for the stories, the talk track and the diagram. Tokens are filled from one of three vertical packs
-// (finance, health, retail). A test fails on any token a pack does not define. Everything in a pack is synthetic: no real company, tenant,
+// {{token}} templating for the stories, the talk track and the diagram. Tokens are filled from one of four vertical packs
+// (airlines, finance, health, retail). A test fails on any token a pack does not define. Everything in a pack is synthetic: no real company, tenant,
 // account or person, and no host. customer.config.json (optional, git-ignored) may override only the brand.
 // The cast names are LABELS on this page. The engines always use the plain ids agent-a, agent-b and agent-c; no cast name is a Privilege object name.
 import fs from 'node:fs';
@@ -18,6 +18,11 @@ const pack = (o, brand = o.brand) => ({
 });
 
 const PARAMS = {
+  airlines: {
+    brand: 'AirGuard Airlines', agentA: 'Fare quote agent', agentB: 'Rebooking agent', agentC: 'Flight status agent',
+    llmKey: 'passenger chat key', llmUse: 'passenger chat', mcpApp: 'itinerary tools', a2aApp: 'rebooking desk',
+    burstWhy: 'A fare sale sends every traveller to the assistant for a fare quote in the same second', slowWhy: 'A long rebooking answer keeps the call open for seconds',
+  },
   finance: {
     brand: 'Fabrikam Bank', agentA: 'Statement export agent', agentB: 'Fraud review agent', agentC: 'Branch hours agent',
     llmKey: 'customer chat key', llmUse: 'customer chat', mcpApp: 'ledger tools', a2aApp: 'payments desk',
@@ -35,7 +40,7 @@ const PARAMS = {
   },
 };
 export const VERTICALS = Object.fromEntries(Object.entries(PARAMS).map(([v, o]) => [v, pack(o)]));
-export const DEFAULT_VERTICAL = 'finance';
+export const DEFAULT_VERTICAL = 'airlines';
 export const DEFAULT_CAST = VERTICALS[DEFAULT_VERTICAL];
 
 export const unfilled = (text, cast) => [...String(text).matchAll(TOKEN)].map((m) => m[1]).filter((k) => !Object.hasOwn(cast, k));

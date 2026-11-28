@@ -9,7 +9,7 @@ const say = (r, what) => r.body?.message || `${what} failed (HTTP ${r.status})`;
  */
 export default function useLab({ onRestart } = {}) {
   const restartRef = useRef(onRestart); restartRef.current = onRestart; // called after a mode change that really happened, before the page restarts
-  const [vertical, setVerticalState] = useState("finance");
+  const [vertical, setVerticalState] = useState("airlines");
   const [info, setInfo] = useState(null);
   const [story, setStory] = useState(null);
   const [error, setError] = useState(null);
