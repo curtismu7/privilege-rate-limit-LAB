@@ -35,7 +35,7 @@ Bucket units and parameters, RPM as a bucket of size N refilling N per minute, t
 - Later steps: web UI and chart, Docker, `ci.yml`, shelf entry, content pack, stories, port claim (7837 is provisional).
 
 ## Protected / must not break
-Loopback-only bind, Host check, same-origin writes, netguard (zero outbound), the vendored kit byte-for-byte (pin test), the banner.
+Loopback-only bind, Host check, same-origin writes, netguard (zero outbound), the vendored kit byte-for-byte (pin test), the Mock or Real modal (shared `mode-modal`, replaces the banner).
 
 ## Verification plan
 `air-test . -- npm test` (Node 26); one test per scenario; mutation check of each core rule; `npm run doctor`; pin test. No deploy or publish in this step.

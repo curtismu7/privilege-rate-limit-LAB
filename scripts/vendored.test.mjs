@@ -46,6 +46,11 @@ test('the shared FloatingDialog and diagram-kit match their pins and name the co
   }
 });
 
+test('the shared mode-modal (ModeModal.jsx, mode-modal.css) matches mode-modal.sha256, and nothing else is in the folder', () => {
+  pinned('web/src/mode-modal/mode-modal.sha256', (f) => `web/src/mode-modal/${f}`, ['ModeModal.jsx', 'mode-modal.css']);
+  assert.deepEqual(fs.readdirSync(new URL('web/src/mode-modal/', root)).sort(), ['ModeModal.jsx', 'mode-modal.css', 'mode-modal.sha256']);
+});
+
 test('the shared UI stylesheet matches scripts/standalone-ui.sha256 and the check script points at where it lives', () => {
   assert.equal(sha('web/src/styles/standalone-ui.css'), read('scripts/standalone-ui.sha256').toString().trim());
   assert.match(read('scripts/check-ui-standard.sh').toString(), /^copy_rel="web\/src\/styles\/standalone-ui\.css"/m);

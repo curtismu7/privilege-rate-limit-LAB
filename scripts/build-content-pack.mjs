@@ -43,7 +43,7 @@ export function buildPack() {
       { id: 'page-observability', label: 'What this run left behind', description: 'The log and audit rows of the latest run by layer, every one tagged simulated; a layer the lab never touched says not logged.', group: 'concept', action: { type: 'route', href: '/#observability' }, terms: ['refusal-shape'] },
       { id: 'page-stories', label: 'Stories', description: 'Seven beats with the words to say, in three industries.', group: 'concept', action: { type: 'route', href: '/#stories' }, terms: ['bucket'] },
       { id: 'page-unverified', label: 'Limits and UNVERIFIED', description: 'What the release notes say, what the lab only models, and the open question the lab does not answer.', group: 'reference', action: { type: 'route', href: '/#unverified' }, terms: ['refusal-shape', 'open-question'] },
-      { id: 'concept-presenter', label: 'Presenter mode and the talk track', description: 'Press P for presenter mode (the simulation banner stays) and open the talk track.', group: 'concept', action: { type: 'route', href: '/#limits' }, terms: ['bucket'] },
+      { id: 'concept-presenter', label: 'Presenter mode and the talk track', description: 'Press P for presenter mode and open the talk track.', group: 'concept', action: { type: 'route', href: '/#limits' }, terms: ['bucket'] },
       { id: 'ref-doctor', label: 'Doctor and health', description: 'Preflight checks (one per scenario) and the demo-health/1 endpoint.', group: 'setup', action: { type: 'route', href: '/api/health' } },
     ],
     diagrams: [{ id: 'rate-limit-bucket', label: 'Rate limits: a refilling bucket, in-flight cap and shared limit', href: '/#diagram' }],

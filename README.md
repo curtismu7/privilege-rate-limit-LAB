@@ -25,7 +25,7 @@ docker compose up --build -d   # OrbStack; published on 127.0.0.1:7837 only, non
 Node 26. Heavy work on the Air: `air-test . -- npm test` (`git add` new files first).
 
 ## The page
-Five pages, the simulation banner first on every one, a Mock / Real toggle in the header (Real is disabled with the server's plain reason) and presenter mode (press P; the banner stays) with a talk track (`docs/talk-track.md`, generated from the same data the page reads).
+Five pages, the Mock or Real modal that opens the page (shared `mode-modal`, once per browser session), a Mock / Real toggle in the header (Real is disabled with the server's plain reason) and presenter mode (press P) with a talk track (`docs/talk-track.md`, generated from the same data the page reads).
 - **Rate limits**: seven scenario buttons, controls (capacity, refill, in-flight cap, node count, shared store, app-wide caps) and a load generator (steady, burst, spike), the verdict first, then a chart of allowed, refused, errors, tokens and in-flight calls over lab time; the bucket against a fixed window side by side; the two-node cluster view with and without sharing; the app-wide caps view; what the client sees on a refusal (the lab's model, UNVERIFIED); and the simulated gateway trace (shared `GatewayTrace`).
 - **Diagram**: `rate-limit-bucket`, loaded by name from diagram-studio data (`server/diagrams/`, exported from diagram-studio-LAB branch `feat/model-gateway-diagrams`, PR #35; re-export after it merges). Movable boxes, Simulate, speed, Reset restores the positions.
 - **Left behind** (rule 27): the latest run's rows by layer through the shared `RunObservability`, every row `simulated`; a layer the lab never touched says `not logged`.
