@@ -10,7 +10,7 @@ Everything on this page is simulated on a lab clock: no gateway, no Redis, no pr
 
 ## A burst, then recovery
 
-Month-end statement requests all arrive in the same second. The bucket holds 10 and refills 2 a second, so 15 at once gets 10 through and 5 refused. Then watch the line: capacity comes back second by second, and after 5 quiet seconds the next burst gets 10 again.
+A fare sale sends every traveller to the assistant for a fare quote in the same second. The bucket holds 10 and refills 2 a second, so 15 at once gets 10 through and 5 refused. Then watch the line: capacity comes back second by second, and after 5 quiet seconds the next burst gets 10 again.
 
 ## Bucket against a fixed window
 
@@ -18,7 +18,7 @@ Same load, two limiters. A fixed window resets all at once at its edge, so a cus
 
 ## Slow calls hold slots
 
-A long fraud-review answer keeps the call open for seconds. With an in-flight cap of 2, a request a second is already too much: the third and fourth are refused although a bucket would serve every one. A slot comes back the instant a call ends.
+A long rebooking answer keeps the call open for seconds. With an in-flight cap of 2, a request a second is already too much: the third and fourth are refused although a bucket would serve every one. A slot comes back the instant a call ends.
 
 ## Two nodes, no sharing
 
@@ -30,7 +30,7 @@ The same nodes and the same burst, but the limit lives in a shared store (a Redi
 
 ## One agent uses up the app's cap
 
-Fabrikam Bank ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer.
+AirGuard Airlines itinerary tools (MCP app) has an app-wide cap that is separate from each key's own cap. Fare quote agent drains the app cap while far below its own key cap, and Rebooking agent, who has sent nothing, is refused at the app layer.
 
 ## What the client sees
 

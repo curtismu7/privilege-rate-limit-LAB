@@ -7,7 +7,7 @@ import { VERTICALS } from "../../../server/src/cast.js";
 import { assertRunObservability } from "../../../server/src/runObservability.js";
 
 const h = useLabHarness();
-const DATA = buildDiagram(VERTICALS.finance, "rate-limit-bucket");
+const DATA = buildDiagram(VERTICALS.airlines, "rate-limit-bucket");
 const N = DATA.steps.length;
 
 describe("Diagram page (rules 5 and 17)", () => {
@@ -15,7 +15,7 @@ describe("Diagram page (rules 5 and 17)", () => {
     await h.mount({ page: "diagram" });
     await screen.findByTestId("pattern-canvas");
     const call = h.lab.calls.find((c) => c.path === "/api/diagram");
-    expect(call.search).toMatch(/name=rate-limit-bucket/); expect(call.search).toMatch(/vertical=finance/);
+    expect(call.search).toMatch(/name=rate-limit-bucket/); expect(call.search).toMatch(/vertical=airlines/);
     for (const n of DATA.nodes) expect(screen.getByTestId(`pat-node-${n.id}`)).toHaveTextContent(n.label);
     expect(document.querySelectorAll(".react-flow__node").length).toBe(DATA.nodes.length);
     expect(N).toBe(7);
@@ -105,7 +105,7 @@ describe("Stories and the Limits page", () => {
     expect(within(beats).getAllByRole("listitem")).toHaveLength(7);
     expect(document.body.textContent).not.toContain("{{");
     expect(screen.getByTestId("beat-run-bucket-vs-fixed-window")).toHaveAttribute("href", "#limits/bucket-vs-fixed-window");
-    expect(screen.getByTestId("story-text")).toHaveTextContent("Fabrikam Bank");
+    expect(screen.getByTestId("story-text")).toHaveTextContent("AirGuard Airlines");
   });
 
   it("Limits: what the release notes say against what the lab models, the open question has NO result and the page claims nothing about fallback", async () => {

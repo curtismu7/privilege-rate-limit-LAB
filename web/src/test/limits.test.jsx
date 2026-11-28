@@ -106,7 +106,7 @@ describe("Rate limits page", () => {
     expect(screen.getByTestId("agent-agent-a")).toHaveTextContent("12 allowed, 0 refused");
     expect(screen.getByTestId("agent-agent-b")).toHaveTextContent("0 allowed, 3 refused");
     expect(screen.getByTestId("agent-agent-b-meter")).toHaveTextContent("30 of 30");
-    expect(screen.getByTestId("agent-agent-a")).toHaveTextContent("Statement export agent"); // the cast label of agent-a
+    expect(screen.getByTestId("agent-agent-a")).toHaveTextContent("Fare quote agent"); // the cast label of agent-a
     expect(screen.getByTestId("client-view")).toHaveTextContent("at the app layer");
   });
 

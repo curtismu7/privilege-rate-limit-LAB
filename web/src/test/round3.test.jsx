@@ -15,11 +15,11 @@ describe("a customer brand reaches every name on the Stories page", () => {
     const cfg = path.join(dir, "c.json"); fs.writeFileSync(cfg, JSON.stringify({ cast: { brand: "Acme Test Co" } }));
     const user = await h.mount({ page: "stories", env: { CUSTOMER_CONFIG: cfg } });
     await screen.findByTestId("beats");
-    for (const v of ["finance", "health", "retail"]) {
+    for (const v of ["airlines", "finance", "health", "retail"]) {
       await user.selectOptions(screen.getByTestId("vertical-select"), v);
       await waitFor(() => expect(screen.getByTestId("story-text")).toHaveTextContent(/^Acme Test Co puts Acme Test Co .+ \(MCP app\)/));
       const text = document.querySelector("main").textContent;
-      for (const other of ["Fabrikam", "Contoso", "Northwind"]) expect(text, `${v}: ${other}`).not.toContain(other);
+      for (const other of ["Fabrikam", "Contoso", "Northwind", "Meridian Air"]) expect(text, `${v}: ${other}`).not.toContain(other);
     }
   });
 });

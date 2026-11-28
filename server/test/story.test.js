@@ -1,18 +1,19 @@
-// Rule 10: stories are DATA with {{cast}} tokens and three vertical packs; a test fails on an undefined token. Also the talk track, the limits data and the open question.
+// Rule 10: stories are DATA with {{cast}} tokens and four vertical packs; a test fails on an undefined token. Also the talk track, the limits data and the open question.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { REPO_ROOT } from '../src/pin.js';
-import { DEFAULT_CAST, VERTICALS, fill, fillDeep, loadCast, unfilled, verticalFrom } from '../src/cast.js';
+import { DEFAULT_CAST, DEFAULT_VERTICAL, VERTICALS, fill, fillDeep, loadCast, unfilled, verticalFrom } from '../src/cast.js';
 import { BEATS, PAGE_TALK, TALK_TRACK } from '../src/data.js';
 import { buildLimits, buildStory, rawStory, renderTalkTrackMarkdown } from '../src/story.js';
 import { LAB_MODEL, OPEN_QUESTIONS } from '../src/limits.js';
 import { SCENARIOS } from '../src/scenarios.js';
 import { scanHosts, scanKeys } from '../src/safety.js';
 
-test('three vertical packs, and they define the same tokens', () => {
-  assert.deepEqual(Object.keys(VERTICALS), ['finance', 'health', 'retail']);
+test('four vertical packs (airlines first, the default), and they define the same tokens', () => {
+  assert.deepEqual(Object.keys(VERTICALS), ['airlines', 'finance', 'health', 'retail']);
+  assert.equal(DEFAULT_VERTICAL, 'airlines'); assert.equal(DEFAULT_CAST.castBrand, 'AirGuard Airlines');
   const keys = Object.keys(DEFAULT_CAST).sort();
   for (const [v, cast] of Object.entries(VERTICALS)) assert.deepEqual(Object.keys(cast).sort(), keys, v);
 });
@@ -40,7 +41,7 @@ test('every built story is fully filled, differs per vertical, and has only rese
     assert.deepEqual(s.agentLabels, { 'agent-a': VERTICALS[v].castAgentA, 'agent-b': VERTICALS[v].castAgentB, 'agent-c': VERTICALS[v].castAgentC });
     texts[v] = text;
   }
-  assert.notEqual(texts.finance, texts.health); assert.notEqual(texts.health, texts.retail);
+  assert.notEqual(texts.airlines, texts.finance); assert.notEqual(texts.finance, texts.health); assert.notEqual(texts.health, texts.retail);
 });
 
 test('one beat per scenario, in the scenario order, and every talk-track page id exists', () => {
@@ -51,7 +52,7 @@ test('one beat per scenario, in the scenario order, and every talk-track page id
 });
 
 test('the verticals fall back to the default; the brand override is only a short plain string', () => {
-  assert.equal(verticalFrom('zzz'), 'finance'); assert.equal(verticalFrom(undefined), 'finance'); assert.equal(verticalFrom('__proto__'), 'finance'); assert.equal(verticalFrom('retail'), 'retail');
+  assert.equal(verticalFrom('zzz'), 'airlines'); assert.equal(verticalFrom(undefined), 'airlines'); assert.equal(verticalFrom('__proto__'), 'airlines'); assert.equal(verticalFrom('retail'), 'retail'); assert.equal(verticalFrom('finance'), 'finance'); assert.equal(verticalFrom('airlines'), 'airlines');
   const dir = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'prl-cc-'));
   const good = path.join(dir, 'g.json'); fs.writeFileSync(good, JSON.stringify({ cast: { brand: 'Acme Test Co' }, other: 'ignored' }));
   assert.equal(loadCast(good).castBrand, 'Acme Test Co');
@@ -94,7 +95,7 @@ test('nothing the lab shows claims that a rate-limit refusal does or does not tr
 test('a customer.config brand reaches every brand-bearing string: no other company name is left in the intro, the beats, the talk track or the labels, in any vertical', () => {
   const dir = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'prl-brand-'));
   const f = path.join(dir, 'c.json'); fs.writeFileSync(f, JSON.stringify({ cast: { brand: 'Acme Test Co' } }));
-  const others = ['Fabrikam', 'Contoso', 'Northwind'];
+  const others = ['Fabrikam', 'Contoso', 'Northwind', 'AirGuard', 'Meridian Air'];
   for (const v of Object.keys(VERTICALS)) {
     const cast = loadCast(f, v);
     assert.equal(cast.castBrand, 'Acme Test Co');
@@ -106,5 +107,29 @@ test('a customer.config brand reaches every brand-bearing string: no other compa
     assert.ok(!text.includes('{{'));
     // and every cast string that names a company is built from the brand: the defaults name only their own
     for (const [k, val] of Object.entries(cast)) for (const name of others) assert.ok(!String(val).includes(name), `${v}.${k} still names ${name}`);
+  }
+});
+
+// The default is the airline: every old brand and the finance wording that came with it are retired from the airline run (the default story, the talk track, the diagram, the
+// generated files and the doctor), and the three older packs still render their own brand.
+const RETIRED = ['Fabrikam', 'Contoso', 'Northwind', 'Meridian Air', 'Skyline Air', 'Harbor', 'Vellum', 'Statement export', 'statement request', 'Fraud review', 'Branch hours', 'ledger'];
+
+test('the default story is AirGuard Airlines and no old brand or finance wording is in it (retired names)', () => {
+  const s = buildStory(loadCast(undefined), undefined);
+  assert.equal(s.vertical, 'airlines'); assert.equal(s.cast.castBrand, 'AirGuard Airlines');
+  const text = JSON.stringify(s) + renderTalkTrackMarkdown(DEFAULT_CAST);
+  assert.ok(text.includes('AirGuard Airlines') && text.includes('Fare quote agent'));
+  for (const name of RETIRED) assert.ok(!text.includes(name), `retired name in the airline run: ${name}`);
+  for (const file of ['content-pack.json', 'docs/talk-track.md', 'customer.config.example.json']) {
+    const t = fs.readFileSync(path.join(REPO_ROOT, file), 'utf8');
+    for (const name of RETIRED) assert.ok(!t.includes(name), `${file}: ${name}`);
+  }
+});
+
+test('the older packs still render their own brand, and a saved finance choice keeps working', () => {
+  for (const [v, brand] of [['finance', 'Fabrikam Bank'], ['health', 'Contoso Health'], ['retail', 'Northwind Retail']]) {
+    assert.equal(verticalFrom(v), v);
+    const text = JSON.stringify(buildStory(VERTICALS[v], v));
+    assert.ok(text.includes(brand), v); assert.ok(!text.includes('AirGuard'), `${v}: the airline brand leaked`);
   }
 });

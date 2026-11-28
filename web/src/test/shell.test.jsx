@@ -77,13 +77,13 @@ describe("the shell: banner, Mock/Real, presenter, talk track, Reset, themes", (
     const user = await h.mount({ page: "limits" });
     await user.click(screen.getByTestId("talk-track-toggle"));
     const dlg = await screen.findByTestId("talk-track-dialog");
-    const story = await h.lab.get("/api/story?vertical=finance");
+    const story = await h.lab.get("/api/story?vertical=airlines");
     expect(within(dlg).getAllByRole("listitem")).toHaveLength(story.talkTrack.length);
   });
 
   it("the industry (vertical) selector reloads the story with the other cast, and the diagram and stories follow it", async () => {
     const user = await h.mount({ page: "stories" });
-    expect(screen.getByTestId("cast")).toHaveTextContent("Statement export agent");
+    expect(screen.getByTestId("cast")).toHaveTextContent("Fare quote agent");
     await user.selectOptions(screen.getByTestId("vertical-select"), "retail");
     await waitFor(() => expect(screen.getByTestId("cast")).toHaveTextContent("Order status agent"));
     expect(h.lab.calls.some((c) => c.path === "/api/story" && /vertical=retail/.test(c.search))).toBe(true);
@@ -92,7 +92,7 @@ describe("the shell: banner, Mock/Real, presenter, talk track, Reset, themes", (
   it("the first story load sends the vertical, like every later one (the server falls back for a missing one, which would hide a lost parameter)", async () => {
     await h.mount({ page: "limits" });
     const first = h.lab.calls.find((c) => c.path === "/api/story");
-    expect(first.search).toBe("?vertical=finance");
+    expect(first.search).toBe("?vertical=airlines");
   });
 
   it("every call carries the workspace id (rule 13), the same one for the whole visit", async () => {

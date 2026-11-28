@@ -85,7 +85,7 @@
     {
       "id": "try-burst-drains-and-refills",
       "label": "Scenario 1: A burst, then recovery",
-      "description": "Month-end statement requests all arrive in the same second. The bucket holds 10 and refills 2 a second, so 15 at once gets 10 through and 5 refused. Then watch the line: capacity comes back second by second, and after 5 quiet seconds the next burst gets 10 again.",
+      "description": "A fare sale sends every traveller to the assistant for a fare quote in the same second. The bucket holds 10 and refills 2 a second, so 15 at once gets 10 through and 5 refused. Then watch the line: capacity comes back second by second, and after 5 quiet seconds the next burst gets 10 again.",
       "group": "try-it",
       "action": {
         "type": "route",
@@ -114,7 +114,7 @@
     {
       "id": "try-inflight-refuses-at-low-rate",
       "label": "Scenario 3: Slow calls hold slots",
-      "description": "A long fraud-review answer keeps the call open for seconds. With an in-flight cap of 2, a request a second is already too much: the third and fourth are refused although a bucket would serve every one. A slot comes back the instant a call ends.",
+      "description": "A long rebooking answer keeps the call open for seconds. With an in-flight cap of 2, a request a second is already too much: the third and fourth are refused although a bucket would serve every one. A slot comes back the instant a call ends.",
       "group": "try-it",
       "action": {
         "type": "route",
@@ -156,7 +156,7 @@
     {
       "id": "try-app-cap-exhausted-by-one-agent",
       "label": "Scenario 6: One agent uses up the app's cap",
-      "description": "Fabrikam Bank ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer.",
+      "description": "AirGuard Airlines itinerary tools (MCP app) has an app-wide cap that is separate from each key's own cap. Fare quote agent drains the app cap while far below its own key cap, and Rebooking agent, who has sent nothing, is refused at the app layer.",
       "group": "try-it",
       "action": {
         "type": "route",
@@ -286,7 +286,7 @@
     {
       "id": "S01",
       "title": "A burst, then recovery",
-      "say": "Month-end statement requests all arrive in the same second. The bucket holds 10 and refills 2 a second, so 15 at once gets 10 through and 5 refused. Then watch the line: capacity comes back second by second, and after 5 quiet seconds the next burst gets 10 again."
+      "say": "A fare sale sends every traveller to the assistant for a fare quote in the same second. The bucket holds 10 and refills 2 a second, so 15 at once gets 10 through and 5 refused. Then watch the line: capacity comes back second by second, and after 5 quiet seconds the next burst gets 10 again."
     },
     {
       "id": "S02",
@@ -296,7 +296,7 @@
     {
       "id": "S03",
       "title": "Slow calls hold slots",
-      "say": "A long fraud-review answer keeps the call open for seconds. With an in-flight cap of 2, a request a second is already too much: the third and fourth are refused although a bucket would serve every one. A slot comes back the instant a call ends."
+      "say": "A long rebooking answer keeps the call open for seconds. With an in-flight cap of 2, a request a second is already too much: the third and fourth are refused although a bucket would serve every one. A slot comes back the instant a call ends."
     },
     {
       "id": "S04",
@@ -311,7 +311,7 @@
     {
       "id": "S06",
       "title": "One agent uses up the app's cap",
-      "say": "Fabrikam Bank ledger tools (MCP app) has an app-wide cap that is separate from each key's own cap. Statement export agent drains the app cap while far below its own key cap, and Fraud review agent, who has sent nothing, is refused at the app layer."
+      "say": "AirGuard Airlines itinerary tools (MCP app) has an app-wide cap that is separate from each key's own cap. Fare quote agent drains the app cap while far below its own key cap, and Rebooking agent, who has sent nothing, is refused at the app layer."
     },
     {
       "id": "S07",

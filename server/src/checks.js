@@ -34,10 +34,10 @@ export function runChecks(env = process.env) {
     const raw = JSON.stringify(rawStory());
     const missing = Object.entries(VERTICALS).flatMap(([v, cast]) => unfilled(raw, cast).map((k) => `${v}:${k}`));
     const filled = Object.entries(VERTICALS).every(([v, cast]) => !JSON.stringify(buildStory(cast, v)).includes('{{'));
-    return { ok: !missing.length && filled, detail: missing.length ? `undefined tokens: ${missing.join(', ')}` : 'every story token is defined in all three vertical packs' };
+    return { ok: !missing.length && filled, detail: missing.length ? `undefined tokens: ${missing.join(', ')}` : 'every story token is defined in all four vertical packs' };
   }));
   checks.push(attempt('diagram-data', () => {
-    const d = DIAGRAM_NAMES.map((n) => buildDiagram(VERTICALS.finance, n));
+    const d = DIAGRAM_NAMES.map((n) => buildDiagram(VERTICALS.airlines, n));
     return { ok: d.every((x) => x.nodes.length && x.steps.length), detail: `${DIAGRAM_NAMES.join(', ')} load by name from diagram-studio data` };
   }));
   for (const sc of SCENARIOS) {
